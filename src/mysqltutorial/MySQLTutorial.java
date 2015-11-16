@@ -27,15 +27,14 @@ import javafx.application.Platform;
 
 
 public class MySQLTutorial {
-    static Connection con;
+    static Connection con;  //connection to database
     static int playersNum = 0;
     /**
      * @param args the command line arguments
      */
+    static final int PLAYERSPERGAME = 2;
+    
     public static void main(String[] args) throws ClassNotFoundException {
-        
-
-        
         try {
            // Class.forName("com.mysql.jdbc.Driver");
             
@@ -74,22 +73,28 @@ public class MySQLTutorial {
             Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
         }
         
+        //CREATE GAMEINSTANCE 1
         
-        new Thread(() -> {
+        
+        Integer[] gamePlayerIDs = new Integer[PLAYERSPERGAME];
+        DataInputStream[] playerInStreams = new DataInputStream[PLAYERSPERGAME];
+        DataOutputStream[] playerOutStreams = new DataOutputStream[PLAYERSPERGAME];
+        
+        new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
             try {
-                Integer[] gamePlayerIDs = new Integer[2];
-                // Create a server socket
                 ServerSocket serverSocket = new ServerSocket(8000);
-                // Listen for a connection request
                  Socket socket = serverSocket.accept();
 
-                 // Create data input and output streams
-                DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
 
+                DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
                 DataOutputStream outputToClient = new DataOutputStream(
                 socket.getOutputStream());
+                
 
-                while (playersNum < 2) {
+                if (playersNum < PLAYERSPERGAME) {
+                    playerInStreams[playersNum] = inputFromClient;
+                    playerOutStreams[playersNum] = outputToClient;
+                    
                     // Receive radius from the client
                     String playerName = inputFromClient.readUTF();
                     int plantType = inputFromClient.readInt();
@@ -97,43 +102,66 @@ public class MySQLTutorial {
 
                     //outputToClient.writeInt(**numerical error code to client switch**); <<write error check
                     try {
-                        boolean playerFound = false;
-                        Statement stmt = (Statement) con.createStatement();
-                        ResultSet myRs = stmt.executeQuery("select * from Player");
-                        while (myRs.next()) {
-                            if (myRs.getString(1).equals(playerName.trim())) {
-                                playerFound = true;
-                            }
-                        }
-                        if (!playerFound) {
-                            stmt.executeUpdate("insert into Player(playerName) \n values (" + playerName + ");");
-                        }
-                        ResultSet playerID = stmt.executeQuery("select id_player from Player where Player.playerName = " + playerName + ");");
-                        gamePlayerIDs[playersNum] = playerID.getInt(1);
-                        playersNum++;
-                        
+                        //add player ID to gamePlayerIDs[]: creates player in database if not found
+                        findAndLoadPlayerID(playerName, gamePlayerIDs);
                     } catch (SQLException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     
-                }
-                // gameplay loop!
-                //4 rounds
-                for (int i = 0; i < 4; i++) {
-                
+                    // now read information and LOAD IN DESCENDING ORDER:
                     
+                    // LOAD MASTERLIST
+                    // LOAD PLANTLIST //give plant temp unique name
+                    //LOAD PLAYERPLANTS
+                    //  LOAD PLANTRESACTIVE
+                    //LOAD PLAYERPLANTS
                     
-                    
-                    
-                }
-                
+                } //else send message back to client to join a different game
             }
             catch(IOException ex) {
                 ex.printStackTrace();
             }
         }).start();
+        
+        
+        if (playersNum == PLAYERSPERGAME) {
+            //instantiate game variables!
+             for (int i = 0; i < 4; i++) {
+                 for (DataInputStream in: playerInStreams) {
+                     try {
+                        int resourceID = in.readInt();
+                        //assume increment 1
+                     } catch (IOException e) {
+                     }
+                     
+                     
+                 }
+                 
+             }
+        }
+        
+    }
+    
+    private static Integer[] findAndLoadPlayerID(String playerName, Integer[] gamePlayerIDs) throws SQLException {
+        boolean playerFound = false;
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRs = stmt.executeQuery("select * from Player");
+        while (myRs.next()) {
+            if (myRs.getString(1).equals(playerName.trim())) {
+                playerFound = true;
+            }
+        }
+        if (!playerFound) {
+            stmt.executeUpdate("insert into Player(playerName) \n values (" + playerName + ");");
+        }
+        ResultSet playerID = stmt.executeQuery("select id_player from Player where Player.playerName = " + playerName + ");");
+        gamePlayerIDs[playersNum] = playerID.getInt(1);
+        playersNum++;
+
+        return gamePlayerIDs;
     }
         
 }
     
+
 
