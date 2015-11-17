@@ -171,10 +171,14 @@ public class MySQLTutorial {
         if (playersNum == PLAYERSPERGAME) {
             //instantiate game variables!
              for (int i = 0; i < 4; i++) {
-                 for (DataInputStream in: playerInStreams) {
+                 for (int j = 0; i < PLAYERSPERGAME; i++) {
+                    DataInputStream in = playerInStreams[j];
+                    int id = gamePlayerIDs[i];
                      try {
                         int resourceID = in.readInt();
+                        
                         //assume increment 1
+                        
                      } catch (IOException e) {
                      }
                      
