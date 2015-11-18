@@ -29,11 +29,18 @@ import javafx.application.Platform;
 public class MySQLTutorial {
     static Connection con;  //connection to database
     static int playersNum = -1;
+    
+    
     final static String DEFAULTGAME = "\"TheGame\"";
     /**
      * @param args the command line arguments
      */
     static final int PLAYERSPERGAME = 2;
+    
+    public static synchronized int incrementPlayersNum() {
+        playersNum++;
+        return playersNum;
+    }
     
     public static void main(String[] args) throws ClassNotFoundException {
         try {
@@ -88,105 +95,111 @@ public class MySQLTutorial {
         DataInputStream[] playerInStreams = new DataInputStream[PLAYERSPERGAME];
         DataOutputStream[] playerOutStreams = new DataOutputStream[PLAYERSPERGAME];
         
-        new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
-            try {
-                playersNum ++;
-                int currPlayer = playersNum; //save quick!! playersNum is liable to be changed in other threads
-                ServerSocket serverSocket = new ServerSocket(8000);
-                 Socket socket = serverSocket.accept();
+        ServerSocket serverSocket;
+        try {
+            serverSocket = new ServerSocket(8000);
 
 
-                DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
-                DataOutputStream outputToClient = new DataOutputStream(
-                socket.getOutputStream());
-                
+            for (int i = 0; i < PLAYERSPERGAME; i++) {
+                new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
 
-                if (currPlayer < PLAYERSPERGAME) {
-                    playerInStreams[currPlayer] = inputFromClient;
-                    playerOutStreams[currPlayer] = outputToClient;
-                    
-                    // Receive radius from the client
-                    String playerName = inputFromClient.readUTF();
-                    String plantName = inputFromClient.readUTF();
-                    int plantType = inputFromClient.readInt();
-                    System.out.println("playername: " + playerName + ", plantName: " + plantName + ", plantType " + plantType);
-                    //int gameNum = inputFromClient.readInt();
-                    int plantId; //will be read from database after insertion of values
-
-                    //outputToClient.writeInt(**numerical error code to client switch**); <<write error check
                     try {
-                        //add player ID to gamePlayerIDs[]: creates player in database if not found
-                        findAndLoadPlayerID(playerName, gamePlayerIDs, currPlayer);
-                    } catch (SQLException ex) {
-                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                    
-                    // now read information and LOAD IN DESCENDING ORDER:
-                    
-                    //ADD Player + Gamenum to MasterList
-                    try {
-                        Statement stmt = (Statement) con.createStatement();
-                        stmt.executeUpdate("insert into MasterList \n (fk_game_Mas, fk_player_Mas) \n values ( " + 1
-                        + ", " + gamePlayerIDs[currPlayer] + " );");
-                    } catch (SQLException ex) {
-                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                    
-                    
-                    try {
-                    // LOAD PLANTLIST //give plant temp unique name
-                        Statement stmt = (Statement) con.createStatement();
-                        stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
-                        + "', " + plantType + ");");
-                        
-                        Statement stmt2 = (Statement) con.createStatement();
-                        ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
-                        plantIdrst.next();
-                        plantId = plantIdrst.getInt(1);
+                         Socket socket = serverSocket.accept();
 
-                    //LOAD PLAYERPLANTS
-                        stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
-                        + ", " + plantId + ");");
-                        
-                    //  LOAD PLANTRESACTIVE
-                        for (int i = 1; i < 4; i++) {   //start with 3 of each resource
-                            stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
-                            + ", " + i + ", " + 3 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
-                        }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                        DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
+                        DataOutputStream outputToClient = new DataOutputStream(
+                        socket.getOutputStream());
+
+                        final int currPlayer = incrementPlayersNum();
+
+                        if (currPlayer < PLAYERSPERGAME) {
+                            playerInStreams[currPlayer] = inputFromClient;
+                            playerOutStreams[currPlayer] = outputToClient;
+
+                            // Receive radius from the client
+                            String playerName = inputFromClient.readUTF();
+                            String plantName = inputFromClient.readUTF();
+                            int plantType = inputFromClient.readInt();
+                            System.out.println("playername: " + playerName + ", plantName: " + plantName + ", plantType " + plantType);
+                            //int gameNum = inputFromClient.readInt();
+                            int plantId; //will be read from database after insertion of values
+
+                            //outputToClient.writeInt(**numerical error code to client switch**); <<write error check
+                            try {
+                                //add player ID to gamePlayerIDs[]: creates player in database if not found
+                                findAndLoadPlayerID(playerName, gamePlayerIDs, currPlayer);
+                            } catch (SQLException ex) {
+                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+                            // now read information and LOAD IN DESCENDING ORDER:
+
+                            //ADD Player + Gamenum to MasterList
+                            try {
+                                Statement stmt = (Statement) con.createStatement();
+                                stmt.executeUpdate("insert into MasterList \n (fk_game_Mas, fk_player_Mas) \n values ( " + 1
+                                + ", " + gamePlayerIDs[currPlayer] + " );");
+                            } catch (SQLException ex) {
+                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+
+                            try {
+                            // LOAD PLANTLIST //give plant temp unique name
+                                Statement stmt = (Statement) con.createStatement();
+                                stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
+                                + "', " + plantType + ");");
+
+                                Statement stmt2 = (Statement) con.createStatement();
+                                ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
+                                plantIdrst.next();
+                                plantId = plantIdrst.getInt(1);
+
+                            //LOAD PLAYERPLANTS
+                                stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
+                                + ", " + plantId + ");");
+
+                            //  LOAD PLANTRESACTIVE
+                                for (int j = 1; j < 4; j++) {   //start with 3 of each resource
+                                    stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
+                                    + ", " + j + ", " + 3 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
+                                }
+                            } catch (SQLException ex) {
+                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+                        } //else send message back to client to join a different game
                     }
-                    
-                    
-                    
-                    
-                } //else send message back to client to join a different game
+                    catch(IOException ex) {
+                        ex.printStackTrace();
+                    }
+                }).start();
             }
-            catch(IOException ex) {
-                ex.printStackTrace();
-            }
-        }).start();
-        
-        
-        if (playersNum == PLAYERSPERGAME) {
-            //instantiate game variables!
-             for (int i = 0; i < 4; i++) {
-                 for (int j = 0; i < PLAYERSPERGAME; i++) {
-                    DataInputStream in = playerInStreams[j];
-                    int id = gamePlayerIDs[i];
-                     try {
-                        int resourceID = in.readInt();
-                        
-                        //assume increment 1
-                        
-                     } catch (IOException e) {
+
+            if (playersNum == PLAYERSPERGAME) {
+                //instantiate game variables!
+                 for (int i = 0; i < 4; i++) {
+                     for (int j = 0; i < PLAYERSPERGAME; i++) {
+                        DataInputStream in = playerInStreams[j];
+                        int id = gamePlayerIDs[i];
+                         try {
+                            int resourceID = in.readInt();
+
+                            //assume increment 1 to id in plantResActive
+
+                         } catch (IOException e) {
+                         }
+
+
                      }
-                     
-                     
+
                  }
-                 
-             }
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
         }
+       
+        
         
     }
     
