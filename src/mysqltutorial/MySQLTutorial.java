@@ -29,6 +29,7 @@ import javafx.application.Platform;
 public class MySQLTutorial {
     static Connection con;  //connection to database
     static int playersNum = -1;
+    static int playersReady = 0;
     
     
     final static String DEFAULTGAME = "\"TheGame\"";
@@ -40,6 +41,10 @@ public class MySQLTutorial {
     public static synchronized int incrementPlayersNum() {
         playersNum++;
         return playersNum;
+    }
+    public static synchronized int incrementPlayersReady() {
+        playersReady++;
+        return playersReady;
     }
     
     public static void main(String[] args) throws ClassNotFoundException {
@@ -168,6 +173,7 @@ public class MySQLTutorial {
                                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
+                            incrementPlayersReady();
                         } //else send message back to client to join a different game
                     }
                     catch(IOException ex) {
@@ -175,26 +181,46 @@ public class MySQLTutorial {
                     }
                 }).start();
             }
+            
+            new Thread(() -> {
+                while (playersNum < PLAYERSPERGAME -1) {
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    System.out.println("waiting...");
+                    System.out.println(playersNum);
+                }
+                if (true) {
+                    System.out.println("okay gameplay go!");
+                    while (playersReady < PLAYERSPERGAME-1) {   // leave loop after enough players ready
+                        try {
+                            Thread.sleep(5000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                    //instantiate game variables!
+                     for (int i = 0; i < 4; i++) {
+                         for (int j = 0; j < PLAYERSPERGAME; j++) {
+                            DataInputStream in = playerInStreams[j];
+                            int id = gamePlayerIDs[j];
+                             try {
+                                int resourceID = in.readInt();
+                                System.out.println(resourceID);
 
-            if (playersNum == PLAYERSPERGAME) {
-                //instantiate game variables!
-                 for (int i = 0; i < 4; i++) {
-                     for (int j = 0; i < PLAYERSPERGAME; i++) {
-                        DataInputStream in = playerInStreams[j];
-                        int id = gamePlayerIDs[i];
-                         try {
-                            int resourceID = in.readInt();
+                                //assume increment 1 to id in plantResActive
 
-                            //assume increment 1 to id in plantResActive
+                             } catch (IOException e) {
+                             }
 
-                         } catch (IOException e) {
+
                          }
 
-
                      }
-
-                 }
-            }
+                }
+            }).start();
         } catch (IOException ex) {
             Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
         }
