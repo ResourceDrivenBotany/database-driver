@@ -1,6 +1,10 @@
 # database-driver
 was example database driver. Now is fledgeling server side code with networking
 
+explanation video uploaded Nov 18 5:20pm
+https://www.youtube.com/watch?v=MbWyeSTw3fg&feature=youtu.be
+In case you’re interested in following the current state of the server
+
 I know it's a beautiful mess but things will get cleaned up in just a sec. Or some days. Sponsored by Rockstar Energy Drink tm.
 don't judge my main method she's a BBW. will clean later.
 
