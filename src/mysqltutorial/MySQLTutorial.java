@@ -97,14 +97,14 @@ public class MySQLTutorial {
         
         
         Integer[] gamePlayerIDs = new Integer[PLAYERSPERGAME];
+        Integer[] gamePlantIDs = new Integer[PLAYERSPERGAME];
+        Integer[] gamePlantTypes = new Integer[PLAYERSPERGAME];
         DataInputStream[] playerInStreams = new DataInputStream[PLAYERSPERGAME];
         DataOutputStream[] playerOutStreams = new DataOutputStream[PLAYERSPERGAME];
         
         ServerSocket serverSocket;
         try {
             serverSocket = new ServerSocket(8000);
-
-
             for (int i = 0; i < PLAYERSPERGAME; i++) {
                 new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
 
@@ -125,6 +125,8 @@ public class MySQLTutorial {
                             String playerName = inputFromClient.readUTF();
                             String plantName = inputFromClient.readUTF();
                             int plantType = inputFromClient.readInt();
+                            gamePlantTypes[currPlayer] = plantType;
+                            
                             System.out.println("playername: " + playerName + ", plantName: " + plantName + ", plantType " + plantType);
                             //int gameNum = inputFromClient.readInt();
                             int plantId; //will be read from database after insertion of values
@@ -147,8 +149,7 @@ public class MySQLTutorial {
                             } catch (SQLException ex) {
                                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
-
+                            
                             try {
                             // LOAD PLANTLIST //give plant temp unique name
                                 Statement stmt = (Statement) con.createStatement();
@@ -159,6 +160,7 @@ public class MySQLTutorial {
                                 ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
                                 plantIdrst.next();
                                 plantId = plantIdrst.getInt(1);
+                                gamePlantIDs[currPlayer] = plantId;
 
                             //LOAD PLAYERPLANTS
                                 stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
@@ -167,12 +169,12 @@ public class MySQLTutorial {
                             //  LOAD PLANTRESACTIVE
                                 for (int j = 1; j < 4; j++) {   //start with 3 of each resource
                                     stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
-                                    + ", " + j + ", " + 3 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
+                                    + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
                                 }
                             } catch (SQLException ex) {
                                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
+                            
                             incrementPlayersReady();
                         } //else send message back to client to join a different game
                     }
@@ -189,35 +191,64 @@ public class MySQLTutorial {
                     } catch (InterruptedException ex) {
                         Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    System.out.println("waiting...");
-                    System.out.println(playersNum);
+                    System.out.println("playersNum " + playersNum + new Date());
                 }
                 if (true) {
                     System.out.println("okay gameplay go!");
-                    while (playersReady < PLAYERSPERGAME-1) {   // leave loop after enough players ready
+                    while (playersReady < PLAYERSPERGAME) {   // leave loop after enough players ready
                         try {
                             Thread.sleep(5000);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
                         }
+                        System.out.println("playersReady " + playersReady + new Date());
                     }
                     //instantiate game variables!
-                     for (int i = 0; i < 4; i++) {
-                         for (int j = 0; j < PLAYERSPERGAME; j++) {
+                     for (int i = 0; i < 4; i++) {  //seasons
+                         for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
                             DataInputStream in = playerInStreams[j];
-                            int id = gamePlayerIDs[j];
-                             try {
-                                int resourceID = in.readInt();
-                                System.out.println(resourceID);
+                            int playerID = gamePlayerIDs[j];
+                            int plantID = gamePlantIDs[j];
+                            int plantTypeID = gamePlantTypes[j];
+                            double modVal;
+                            int resQuantity;
+ 
+                            try {   //read from Client and perform gameplay operations
+                               playerOutStreams[j].writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
+                                       + "and integer quantity to increment 1-10**unchecked**");
+                               int resourceID = in.readInt();
+                               int resourceAmount = in.readInt();
+                               System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
+                               
+                               Statement stmt;
+                               
+                                try {   //get modval for chosen resource
+                                    stmt = (Statement) con.createStatement();
+                                    ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + plantTypeID 
+                                        + " and PlantTypeResMod.fk_resource_PTRM = " + resourceID + ";");
+                                    ptrmRs.next();
+                                    modVal = ptrmRs.getDouble(1);
+                                    
+                                    //get resource quantity from PlantResActive
+                                    ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+                                        + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+                                    resQRs.next();
+                                    resQuantity = resQRs.getInt(1);
+                      
+                                    System.out.println("resource: " + resourceID + ", amount: " + resourceAmount + ", modval: " + modVal
+                                        + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
+                                        + resourceAmount*modVal*resQuantity);
+                                    
+                                } catch (SQLException ex) {
+                                    Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
+                                }
 
-                                //assume increment 1 to id in plantResActive
 
-                             } catch (IOException e) {
-                             }
+                               //assume increment 1 to id in plantResActive
 
-
+                            } catch (IOException e) {
+                            }
                          }
-
                      }
                 }
             }).start();
