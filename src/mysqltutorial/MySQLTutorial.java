@@ -240,7 +240,7 @@ public class MySQLTutorial {
                                     System.out.println("resource: " + resourceID + ", amount: " + resourceAmount + ", modval: " + modVal
                                         + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
                                         + resourceAmount*modVal + resQuantity);
-                                    //stmt.executeUpdate("Update PlayerResActive\n Set ResQuantity " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
+                                    stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
                                     
                                     
                                 } catch (SQLException ex) {
