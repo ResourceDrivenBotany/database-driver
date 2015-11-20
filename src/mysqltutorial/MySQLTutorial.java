@@ -194,7 +194,7 @@ public class MySQLTutorial {
                     System.out.println("playersNum " + playersNum + new Date());
                 }
                 if (true) {
-                    System.out.println("okay gameplay go!");
+                    System.out.println("Enough players for a game!");
                     while (playersReady < PLAYERSPERGAME) {   // leave loop after enough players ready
                         try {
                             Thread.sleep(5000);
@@ -211,6 +211,7 @@ public class MySQLTutorial {
                             int plantID = gamePlantIDs[j];
                             int plantTypeID = gamePlantTypes[j];
                             double modVal;
+                            int resActiveID;
                             int resQuantity;
  
                             try {   //read from Client and perform gameplay operations
@@ -230,14 +231,17 @@ public class MySQLTutorial {
                                     modVal = ptrmRs.getDouble(1);
                                     
                                     //get resource quantity from PlantResActive
-                                    ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+                                    ResultSet resQRs = stmt.executeQuery("select id_plantResActive, resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
                                         + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
                                     resQRs.next();
-                                    resQuantity = resQRs.getInt(1);
+                                    resActiveID = resQRs.getInt(1);
+                                    resQuantity = resQRs.getInt(2);
                       
                                     System.out.println("resource: " + resourceID + ", amount: " + resourceAmount + ", modval: " + modVal
                                         + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
-                                        + resourceAmount*modVal*resQuantity);
+                                        + resourceAmount*modVal + resQuantity);
+                                    //stmt.executeUpdate("Update PlayerResActive\n Set ResQuantity " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
+                                    
                                     
                                 } catch (SQLException ex) {
                                     Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
