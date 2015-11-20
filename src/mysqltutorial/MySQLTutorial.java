@@ -236,12 +236,14 @@ public class MySQLTutorial {
                                     resQRs.next();
                                     resActiveID = resQRs.getInt(1);
                                     resQuantity = resQRs.getInt(2);
+                                    playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
                       
-                                    System.out.println("resource: " + resourceID + ", amount: " + resourceAmount + ", modval: " + modVal
+                                    System.out.println("resource: " + resourceID + ", amount to add: " + resourceAmount + ", modval: " + modVal
                                         + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
                                         + resourceAmount*modVal + resQuantity);
                                     stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
                                     
+                                    playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + (resourceAmount*modVal + resQuantity));  
                                     
                                 } catch (SQLException ex) {
                                     Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
