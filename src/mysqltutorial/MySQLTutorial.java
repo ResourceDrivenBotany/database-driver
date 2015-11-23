@@ -15,7 +15,13 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
@@ -204,8 +210,14 @@ public class MySQLTutorial {
                         System.out.println("playersReady " + playersReady + new Date());
                     }
                     //instantiate game variables!
-                     for (int i = 0; i < 4; i++) {  //seasons
-                         for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
+                     for (int i = 0; i < 4; i++) {  //rounds
+                         
+                        HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
+
+                        ArrayList<Integer> defendingPlayers = new ArrayList<Integer>();
+                        ArrayList<Integer> growingPlayers = new ArrayList<Integer>();
+                        
+                        for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
                             DataInputStream in = playerInStreams[j];
                             int playerID = gamePlayerIDs[j];
                             int plantID = gamePlantIDs[j];
@@ -213,7 +225,11 @@ public class MySQLTutorial {
                             double modVal;
                             int resActiveID;
                             int resQuantity;
- 
+                            
+                            System.out.println("startofplayerloop");
+                            
+                            
+                            ///vvv increment resource
                             try {   //read from Client and perform gameplay operations
                                playerOutStreams[j].writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
                                        + "and integer quantity to increment 1-10**unchecked**");
@@ -222,6 +238,7 @@ public class MySQLTutorial {
                                System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
                                
                                Statement stmt;
+                               
                                
                                 try {   //get modval for chosen resource
                                     stmt = (Statement) con.createStatement();
@@ -248,14 +265,58 @@ public class MySQLTutorial {
                                 } catch (SQLException ex) {
                                     Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
                                 }
-
-
-                               //assume increment 1 to id in plantResActive
-
+                                playerOutStreams[j].writeUTF("enter attack (1) + playerToAttack + resource#, defend (2) or grow (3)");
+                            
+                                switch (in.readInt()) {
+                                    case 1:
+                                        System.out.println("attacking");
+                                        int playerToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
+                                        int resourceToAttack = in.readInt();
+                                       hmapAttackData.put(playerToAttack, resourceToAttack);
+                                        break;
+                                    case 2://defend
+                                        System.out.println("defending");
+                                        defendingPlayers.add(playerID);
+                                        break;
+                                    case 3://grow
+                                        System.out.println("growing");
+                                        growingPlayers.add(playerID);
+                                        break;
+                                }
                             } catch (IOException e) {
+                            }  
+                            System.out.println("end of playerloop");
+                        }
+
+                        try {
+                            Statement stmt = con.createStatement();
+                            
+                            //ATTACKvv
+                            Set attackSet = hmapAttackData.entrySet();
+                            Iterator attackIterator = attackSet.iterator();
+
+                            while(attackIterator.hasNext()) {
+                               Map.Entry mentry = (Map.Entry)attackIterator.next();
+                               int playerToAttack = (int)mentry.getKey();
+                               int resourceToAttack;
+                               if (! defendingPlayers.contains(playerToAttack)) {
+                                   resourceToAttack = (int) mentry.getValue();
+                                   stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity - " + 4 + " where fk_plant_plRA = " + playerToAttack 
+                                           + " and fk_resource_plRA = " + resourceToAttack + ";");
+                                   //SQL decrement data from player's respourceToAttack by constant amount
+                               }
                             }
-                         }
-                     }
+                            //GROW
+                            for (Integer gPlayerID: growingPlayers) {
+                                if (! hmapAttackData.containsKey(gPlayerID)) {
+                                        //SQL apply growth to each fk_plant_PlRA in plantResActive --> resQuantity = resQuantity + GROWCONSTANT*ln(score)
+                                    stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlayerID 
+                                           + ";");
+                                }
+                            }
+                        } catch (SQLException e) {
+                        }
+                    }
                 }
             }).start();
         } catch (IOException ex) {
@@ -283,6 +344,7 @@ public class MySQLTutorial {
         playerID.next();
         gamePlayerIDs[currentPlayer] = playerID.getInt(1);
 
+        System.out.println("player ID:" + gamePlayerIDs[currentPlayer]);
         return gamePlayerIDs;
     }
         
