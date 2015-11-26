@@ -214,8 +214,8 @@ public class MySQLTutorial {
                          
                         HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
 
-                        ArrayList<Integer> defendingPlayers = new ArrayList<Integer>();
-                        ArrayList<Integer> growingPlayers = new ArrayList<Integer>();
+                        ArrayList<Integer> defendingPlants = new ArrayList<Integer>();
+                        ArrayList<Integer> growingPlants = new ArrayList<Integer>();
                         
                         for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
                             DataInputStream in = playerInStreams[j];
@@ -265,22 +265,28 @@ public class MySQLTutorial {
                                 } catch (SQLException ex) {
                                     Logger.getLogger(MySQLTutorial.class.getName()).log(Level.SEVERE, null, ex);
                                 }
-                                playerOutStreams[j].writeUTF("enter attack (1) + playerToAttack + resource#, defend (2) or grow (3)");
+                                String playersList = "";
+                                for (int k = 0; k < PLAYERSPERGAME; k++) {
+                                    playersList += "\nPlayer ID: " + gamePlayerIDs[k] + "PlantID: " + gamePlantIDs[k];
+                                }
+                                playerOutStreams[j].writeUTF(playersList);
+                                
+                                playerOutStreams[j].writeUTF("enter attack (1) + plantToAttack + resource#, defend (2) or grow (3)");
                             
                                 switch (in.readInt()) {
                                     case 1:
                                         System.out.println("attacking");
-                                        int playerToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
+                                        int plantToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
                                         int resourceToAttack = in.readInt();
-                                       hmapAttackData.put(playerToAttack, resourceToAttack);
+                                       hmapAttackData.put(plantToAttack, resourceToAttack);
                                         break;
                                     case 2://defend
                                         System.out.println("defending");
-                                        defendingPlayers.add(playerID);
+                                        defendingPlants.add(plantID);
                                         break;
                                     case 3://grow
                                         System.out.println("growing");
-                                        growingPlayers.add(playerID);
+                                        growingPlants.add(plantID);
                                         break;
                                 }
                             } catch (IOException e) {
@@ -297,20 +303,20 @@ public class MySQLTutorial {
 
                             while(attackIterator.hasNext()) {
                                Map.Entry mentry = (Map.Entry)attackIterator.next();
-                               int playerToAttack = (int)mentry.getKey();
+                               int plantToAttack = (int)mentry.getKey();
                                int resourceToAttack;
-                               if (! defendingPlayers.contains(playerToAttack)) {
+                               if (! defendingPlants.contains(plantToAttack)) {
                                    resourceToAttack = (int) mentry.getValue();
-                                   stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity - " + 4 + " where fk_plant_plRA = " + playerToAttack 
+                                   stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity - " + 4 + " where fk_plant_plRA = " + plantToAttack 
                                            + " and fk_resource_plRA = " + resourceToAttack + ";");
                                    //SQL decrement data from player's respourceToAttack by constant amount
                                }
                             }
                             //GROW
-                            for (Integer gPlayerID: growingPlayers) {
-                                if (! hmapAttackData.containsKey(gPlayerID)) {
+                            for (Integer gPlantID: growingPlants) {
+                                if (! hmapAttackData.containsKey(gPlantID)) {
                                         //SQL apply growth to each fk_plant_PlRA in plantResActive --> resQuantity = resQuantity + GROWCONSTANT*ln(score)
-                                    stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlayerID 
+                                    stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlantID 
                                            + ";");
                                 }
                             }
