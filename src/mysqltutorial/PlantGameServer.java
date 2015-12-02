@@ -115,6 +115,13 @@ public class PlantGameServer {
         return myRs.getString(1);
     }
     
+    private static int getTypeOfPlant(int plantID) throws SQLException {
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRs = stmt.executeQuery("select fk_plantType_PlLi from plantList where id_plant = " + plantID + ";");
+        myRs.next();
+        return myRs.getInt(1);
+    }
+    
     public static void main(String[] args){
          try {
             con = DriverManager.getConnection("jdbc:mysql://localhost:3306/plantgamedb", "root", "");
@@ -269,7 +276,12 @@ public class PlantGameServer {
                                     System.out.println("attacking");
                                     int plantToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
                                     int resourceToAttack = in.readInt();
-                                   hmapAttackData.put(plantToAttack, resourceToAttack);
+                                    hmapAttackData.put(plantToAttack, resourceToAttack);
+                                    try {
+                                        decResource(3, 1, plantID); //decrease  scent
+                                    } catch (SQLException ex) {
+                                        Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                     break;
                                 case 2://defend
                                     System.out.println("defending");
@@ -305,13 +317,23 @@ public class PlantGameServer {
                         }
                         //GROW
                         for (Integer gPlantID: growingPlants) {
+                            System.out.println("growing plant " + gPlantID);
+                            int typeOfPlant = getTypeOfPlant(gPlantID);
                             if (! hmapAttackData.containsKey(gPlantID)) {
                                     //SQL apply growth to each fk_plant_PlRA in plantResActive --> resQuantity = resQuantity + GROWCONSTANT*ln(score)
-                                stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlantID 
-                                       + ";");
+//                                stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlantID 
+//                                       + ";");
+                                for (int j = 1; j <= 3; j++) {
+                                    double resQ = getResource(j, gPlantID);
+                                    System.out.printf(gPlantID + ": old: %.1f", resQ);
+                                    resQ = incResource(j, 1, typeOfPlant, gPlantID);  //applies modifiers
+                                    System.out.printf("new: %.1f", resQ);
+                                }
                             }
                         }
-                    } catch (SQLException e) {
+                    } catch (SQLException ex) {
+                        System.out.println("EXCEPTION SKIPPING GROWTH");
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     System.out.println("end of attack");
                 }
@@ -343,6 +365,16 @@ public class PlantGameServer {
         return i; //returns number of available plantTypes
     }
     
+    private static double getResource(int resourceID, int plantID) throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        //get resource quantity from PlantResActive
+        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+            + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+        resQRs.next();
+        double resQuantity = resQRs.getDouble(1);
+        return resQuantity;
+    }
+    
     private static double incResource(int resourceID, int resourceAmount, int plantTypeID, int plantID) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + plantTypeID 
@@ -358,11 +390,22 @@ public class PlantGameServer {
         double resQuantity = resQRs.getDouble(2);
         //playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
 
-        System.out.println("resource: " + resourceID + ", amount to add: " + resourceAmount + ", modval: " + modVal
-            + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
-            + resourceAmount*modVal + resQuantity);
         stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
         return resourceAmount*modVal + resQuantity;
+    }
+    
+    private static double decResource(int resourceID, int resourceAmount, int plantID) throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+
+        //get resource quantity from PlantResActive
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive, resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+            + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+        resQRs.next();
+        int resActiveID = resQRs.getInt(1);
+        double resQuantity = resQRs.getDouble(2);
+
+        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resQuantity - resourceAmount)  + " where id_plantResActive = " + resActiveID + ";");
+        return resQuantity - resourceAmount;
     }
     
     private static void loadPlayerPlantData(int currPlayer, Integer[] gamePlayerIDs, Integer[] gamePlantIDs, String plantName, int plantType) throws SQLException{
