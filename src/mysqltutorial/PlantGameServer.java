@@ -122,6 +122,8 @@ public class PlantGameServer {
         return myRs.getInt(1);
     }
     
+
+    
     public static void main(String[] args){
          try {
             con = DriverManager.getConnection("jdbc:mysql://localhost:3306/plantgamedb", "root", "");
@@ -261,7 +263,7 @@ public class PlantGameServer {
                                 for (int k = 0; k < PLAYERSPERGAME; k++) {
                                     int currPlayerID = gamePlayerIDs[k];
                                     String nameOfPlayer =  getNameOfPlayer(currPlayerID);
-                                    playersList += "\nPlayer name: " + nameOfPlayer;
+                                    playersList += "\nPlayer name: " + nameOfPlayer + ((playerID == gamePlayerIDs[k])? "(you)": "");    // if playerID = 
                                     playersList += "\n\tPlayer ID: " + gamePlayerIDs[k] + ", PlantID: " + gamePlantIDs[k];
                                 }
                                 playerOutStreams[j].writeUTF(playersList);
