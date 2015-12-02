@@ -60,6 +60,30 @@ public class PlantGameServer {
 
     }
     
+    private static int getIntLoop(DataInputStream in, DataOutputStream out, String message) throws IOException{
+        boolean loop = true;
+        int fromClient = 0;
+        while (loop) {
+            try {
+                fromClient = in.readInt();
+                loop = false;
+            } catch (IOException ex) {
+                loop = true;
+                out.writeUTF(message);
+            }
+        }
+        return fromClient;
+    }
+    
+    private static int getIntInRange(DataInputStream in, DataOutputStream out, int low, int high, String message) throws IOException {
+        int fromClient = getIntLoop(in, out, "failed integer input, Try again.");
+        while (fromClient < low || fromClient > high) {
+            out.writeUTF(message);
+            fromClient = getIntLoop(in, out, "failed integer input, Try again.");
+        }
+        return fromClient;
+    }
+    
     private static void pTRM_Initialize() throws SQLException{
         if (pTRM_Initialized())
             return;
@@ -82,6 +106,13 @@ public class PlantGameServer {
                     "values (1, 2, 1.0)");
             stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
                     "values (1, 3, 1.0)");
+    }
+    
+    private static String getNameOfPlayer(int playerID) throws SQLException {
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRs = stmt.executeQuery("select playerName from Player where id_player = " + playerID + ";");
+        myRs.next();
+        return myRs.getString(1);
     }
     
     public static void main(String[] args){
@@ -132,16 +163,19 @@ public class PlantGameServer {
                             playerOutStreams[currPlayer] = outputToClient;
 
                             // Read in from client
+                            outputToClient.writeUTF("Enter player's name! \n(will be created in database if doesn't exist):");
                             String playerName = inputFromClient.readUTF();
+                            outputToClient.writeUTF("Enter plant's name! \n(will be created in database if doesn't exist):");
                             String plantName = inputFromClient.readUTF();
-                            int plantType = inputFromClient.readInt();
-                            
-                            gamePlantTypes[currPlayer] = plantType;
-                            
-                            System.out.println("playername: " + playerName + ", plantName: " + plantName + ", plantType " + plantType);
-                            
-                            //outputToClient.writeInt(**numerical error code to client switch**); <<write error check
+                            outputToClient.writeUTF("Enter your plantType Number. Available plantTypes: ");
                             try {
+                                int numberOfTypes = printPlantTypesAvailable(outputToClient);
+                                int plantType = getIntInRange(inputFromClient, outputToClient, 1, numberOfTypes, "invalid Type. Enter an integer:");
+                            
+                                gamePlantTypes[currPlayer] = plantType;
+                            
+                                System.out.println("playername: " + playerName + ", plantName: " + plantName + ", plantType " + plantType);
+                            
                                 //add player ID to gamePlayerIDs[]: creates player in database if not found
                                 findAndLoadPlayerID(playerName, gamePlayerIDs, currPlayer);
                                 loadPlayerPlantData(currPlayer, gamePlayerIDs, gamePlantIDs, plantName, plantType);
@@ -186,6 +220,7 @@ public class PlantGameServer {
 
                     for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
                         DataInputStream in = playerInStreams[j];
+                        DataOutputStream out = playerOutStreams[j];
                         int playerID = gamePlayerIDs[j];
                         int plantID = gamePlantIDs[j];
                         int plantTypeID = gamePlantTypes[j];
@@ -195,10 +230,11 @@ public class PlantGameServer {
 
                         ///vvv increment resource
                         try {   //read from Client and perform gameplay operations
-                           playerOutStreams[j].writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
-                                   + "and integer quantity to increment 1-10**unchecked**");
-                           int resourceID = in.readInt();
-                           int resourceAmount = in.readInt();
+                           out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
+                                   + "and integer quantity to increment 1-10");
+                           int resourceID = getIntInRange(in, out, 1, 3, "Resources are numbered 1-3. Try again:");
+                           System.out.println("debugging1");
+                           int resourceAmount = getIntInRange(in, out, 1, 10, "enter integer 1-10:");
                            System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
 
                            Statement stmt;
@@ -213,14 +249,18 @@ public class PlantGameServer {
                                 double newResQuantity = incResource(resourceID, resourceAmount, plantTypeID, plantID);
                                 playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + newResQuantity);  
 
+                            
+                                String playersList = "";
+                                for (int k = 0; k < PLAYERSPERGAME; k++) {
+                                    int currPlayerID = gamePlayerIDs[k];
+                                    String nameOfPlayer =  getNameOfPlayer(currPlayerID);
+                                    playersList += "\nPlayer name: " + nameOfPlayer;
+                                    playersList += "\n\tPlayer ID: " + gamePlayerIDs[k] + ", PlantID: " + gamePlantIDs[k];
+                                }
+                                playerOutStreams[j].writeUTF(playersList);
                             } catch (SQLException ex) {
                                 Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
                             }
-                            String playersList = "";
-                            for (int k = 0; k < PLAYERSPERGAME; k++) {
-                                playersList += "\nPlayer ID: " + gamePlayerIDs[k] + "PlantID: " + gamePlantIDs[k];
-                            }
-                            playerOutStreams[j].writeUTF(playersList);
 
                             playerOutStreams[j].writeUTF("enter attack (1) + plantToAttack + resource#, defend (2) or grow (3)");
 
@@ -273,12 +313,34 @@ public class PlantGameServer {
                         }
                     } catch (SQLException e) {
                     }
+                    System.out.println("end of attack");
                 }
                 
             }).start();
         } catch (IOException ex) {
             Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private static int printPlantTypesAvailable(DataOutputStream out) throws SQLException, IOException {
+        Statement stmtPT = (Statement) con.createStatement();
+        Statement stmtPTRM = (Statement) con.createStatement();
+        
+        ResultSet rsPT = stmtPT.executeQuery("select * from plantType");
+        int i = 0;
+        
+        while(rsPT.next()){
+            i++;
+            int plantType = rsPT.getInt(1);
+            out.writeUTF("PlantType: "+ plantType +", Name: "+rsPT.getString(2));
+            ResultSet psPTRM = stmtPTRM.executeQuery(
+                "select fk_resource_PTRM, modval from plantTypeResMod where fk_plantType_PTRM = " +
+                        plantType);
+            while (psPTRM.next()) {
+                out.writeUTF("\t resource type: " + psPTRM.getInt(1) + ", resource modifier: " + String.format("%.1f", psPTRM.getDouble(2)));
+            }
+        }
+        return i; //returns number of available plantTypes
     }
     
     private static double incResource(int resourceID, int resourceAmount, int plantTypeID, int plantID) throws SQLException{
