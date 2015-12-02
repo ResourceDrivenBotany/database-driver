@@ -56,8 +56,7 @@ public class PlantGameServer {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs;
         myRs = stmt.executeQuery("select * from PlantTypeResMod");
-        myRs.next();
-        return myRs.getInt(1) == 1;
+        return myRs.next();
 
     }
     
@@ -206,25 +205,13 @@ public class PlantGameServer {
 
                             try {   //get modval for chosen resource
                                 stmt = (Statement) con.createStatement();
-                                ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + plantTypeID 
-                                    + " and PlantTypeResMod.fk_resource_PTRM = " + resourceID + ";");
-                                ptrmRs.next();
-                                modVal = ptrmRs.getDouble(1);
-
-                                //get resource quantity from PlantResActive
-                                ResultSet resQRs = stmt.executeQuery("select id_plantResActive, resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+                                ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
                                     + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
                                 resQRs.next();
-                                resActiveID = resQRs.getInt(1);
-                                resQuantity = resQRs.getInt(2);
-                                playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
-
-                                System.out.println("resource: " + resourceID + ", amount to add: " + resourceAmount + ", modval: " + modVal
-                                    + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
-                                    + resourceAmount*modVal + resQuantity);
-                                stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
-
-                                playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + (resourceAmount*modVal + resQuantity));  
+                                double  rQ= resQRs.getDouble(1);
+                                playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + String.format("%.1f", rQ));  
+                                double newResQuantity = incResource(resourceID, resourceAmount, plantTypeID, plantID);
+                                playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + newResQuantity);  
 
                             } catch (SQLException ex) {
                                 Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
@@ -294,42 +281,63 @@ public class PlantGameServer {
         }
     }
     
+    private static double incResource(int resourceID, int resourceAmount, int plantTypeID, int plantID) throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + plantTypeID 
+            + " and PlantTypeResMod.fk_resource_PTRM = " + resourceID + ";");
+        ptrmRs.next();
+        Double modVal = ptrmRs.getDouble(1);
+
+        //get resource quantity from PlantResActive
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive, resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+            + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+        resQRs.next();
+        int resActiveID = resQRs.getInt(1);
+        double resQuantity = resQRs.getDouble(2);
+        //playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
+
+        System.out.println("resource: " + resourceID + ", amount to add: " + resourceAmount + ", modval: " + modVal
+            + ", current resource quantity: " + resQuantity + ", modVal*amount + currentResourceQuantity = "
+            + resourceAmount*modVal + resQuantity);
+        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
+        return resourceAmount*modVal + resQuantity;
+    }
+    
     private static void loadPlayerPlantData(int currPlayer, Integer[] gamePlayerIDs, Integer[] gamePlantIDs, String plantName, int plantType) throws SQLException{
-        // now read information and LOAD IN DESCENDING ORDER:
 
-                            //ADD Player + Gamenum to MasterList
-                            try {
-                                Statement stmt = (Statement) con.createStatement();
-                                stmt.executeUpdate("insert into MasterList \n (fk_game_Mas, fk_player_Mas) \n values ( " + 1
-                                + ", " + gamePlayerIDs[currPlayer] + " );");
-                            } catch (SQLException ex) {
-                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                            
-                            try {
-                            // LOAD PLANTLIST //give plant temp unique name
-                                Statement stmt = (Statement) con.createStatement();
-                                stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
-                                + "', " + plantType + ");");
+        //ADD Player + Gamenum to MasterList
+        try {
+            Statement stmt = (Statement) con.createStatement();
+            stmt.executeUpdate("insert into MasterList \n (fk_game_Mas, fk_player_Mas) \n values ( " + 1
+            + ", " + gamePlayerIDs[currPlayer] + " );");
+        } catch (SQLException ex) {
+            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
-                                Statement stmt2 = (Statement) con.createStatement();
-                                ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
-                                plantIdrst.next();
-                                int plantId = plantIdrst.getInt(1);
-                                gamePlantIDs[currPlayer] = plantId;
+        try {
+        // LOAD PLANTLIST //give plant temp unique name
+            Statement stmt = (Statement) con.createStatement();
+            stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
+            + "', " + plantType + ");");
 
-                            //LOAD PLAYERPLANTS
-                                stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
-                                + ", " + plantId + ");");
+            Statement stmt2 = (Statement) con.createStatement();
+            ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
+            plantIdrst.next();
+            int plantId = plantIdrst.getInt(1);
+            gamePlantIDs[currPlayer] = plantId;
 
-                            //  LOAD PLANTRESACTIVE
-                                for (int j = 1; j < 4; j++) {   //start with 3 of each resource
-                                    stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
-                                    + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
-                                }
-                            } catch (SQLException ex) {
-                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+        //LOAD PLAYERPLANTS
+            stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
+            + ", " + plantId + ");");
+
+        //  LOAD PLANTRESACTIVE
+            for (int j = 1; j < 4; j++) {   //start with 3 of each resource
+                stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
+                + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+        }
                             
     }
     
