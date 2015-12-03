@@ -101,11 +101,23 @@ public class PlantGameServer {
                     "values ('scent', 1);");
 
             stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
-                    "values (1, 1, 1.0)");
+                    "values (1, 1, 1.1)");
             stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
-                    "values (1, 2, 1.0)");
+                    "values (1, 2, 1.1)");
             stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
                     "values (1, 3, 1.0)");
+            
+            
+            // next plant type
+            stmt.executeUpdate("insert into PlantType (typeName)\n" +
+                    "values ('vine');");
+
+            stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
+                    "values (2, 1, 1.0)");
+            stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
+                    "values (2, 2, 1.0)");
+            stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
+                    "values (2, 3, 1.1)");
     }
     
     private static String getNameOfPlayer(int playerID) throws SQLException {
