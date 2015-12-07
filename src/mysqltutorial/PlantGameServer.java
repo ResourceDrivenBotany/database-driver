@@ -33,6 +33,11 @@ import javafx.application.Platform;
 
 
 public class PlantGameServer {
+    private final static int SPRING = 8;
+    private final static int SUMMER = 10;
+    private final static int FALL = 6;
+    private final static int WINTER = 4;
+    
     static Connection con;  //connection to database
     static int playersNum = -1;
     static int playersReady = 0;
@@ -133,6 +138,12 @@ public class PlantGameServer {
         myRs.next();
         return myRs.getInt(1);
     }
+    private static String getNameOfPlant(int plantID) throws SQLException {
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRs = stmt.executeQuery("select plantName from plantList where id_plant = " + plantID + ";");
+        myRs.next();
+        return myRs.getString(1);
+    }
     
     
 
@@ -164,6 +175,13 @@ public class PlantGameServer {
         Integer[] gamePlantTypes = new Integer[PLAYERSPERGAME];
         DataInputStream[] playerInStreams = new DataInputStream[PLAYERSPERGAME];
         DataOutputStream[] playerOutStreams = new DataOutputStream[PLAYERSPERGAME];
+        
+        Integer[] gamePlantSizeInitial = new Integer[PLAYERSPERGAME];
+        
+        Integer[] gamePlantGrowths = new Integer[PLAYERSPERGAME];
+        for (int i = 0; i < PLAYERSPERGAME; i++) {
+            gamePlantGrowths[i] = 0;
+        }
         
         ServerSocket serverSocket;
         try {
@@ -201,6 +219,7 @@ public class PlantGameServer {
                                 //add player ID to gamePlayerIDs[]: creates player in database if not found
                                 findAndLoadPlayerID(playerName, gamePlayerIDs, currPlayer);
                                 loadPlayerPlantData(currPlayer, gamePlayerIDs, gamePlantIDs, plantName, plantType);
+                                
                             } catch (SQLException ex) {
                                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -232,166 +251,203 @@ public class PlantGameServer {
                     }
                     System.out.println("playersReady " + playersReady + new Date());
                 }
-                
-                
-                //instantiate game variables!
-                 for (int i = 0; i < 4; i++) {  //rounds
-                    HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
-
-                    ArrayList<Integer> defendingPlants = new ArrayList<Integer>();
-                    ArrayList<Integer> growingPlants = new ArrayList<Integer>();
-
-                    for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
-                        DataInputStream in = playerInStreams[j];
-                        DataOutputStream out = playerOutStreams[j];
-                        int playerID = gamePlayerIDs[j];
-                        int plantID = gamePlantIDs[j];
-                        int plantTypeID = gamePlantTypes[j];
-                        double modVal;
-                        int resActiveID;
-                        int resQuantity;
-
-                        ///vvv increment resource
-                        try {   //read from Client and perform gameplay operations
-                           out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
-                                   + "and integer quantity to increment 1-10");
-                           int resourceID = getIntInRange(in, out, 1, 3, "Resources are numbered 1-3. Try again:");
-                           System.out.println("debugging1");
-                           int resourceAmount = getIntInRange(in, out, 1, 10, "enter integer 1-10:");
-                           System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
-
-                           Statement stmt;
-
-                            try {   //get modval for chosen resource
-                                stmt = (Statement) con.createStatement();
-                                ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
-                                    + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
-                                resQRs.next();
-                                double  rQ= resQRs.getDouble(1);
-                                playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + String.format("%.1f", rQ));  
-                                double newResQuantity = incResource(resourceID, resourceAmount, plantTypeID, plantID);
-                                playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + newResQuantity);  
-
-                            
-                                String playersList = "";
-                                for (int k = 0; k < PLAYERSPERGAME; k++) {
-                                    int currPlayerID = gamePlayerIDs[k];
-                                    String nameOfPlayer =  getNameOfPlayer(currPlayerID);
-                                    playersList += "\nPlayer name: " + nameOfPlayer + ((playerID == gamePlayerIDs[k])? "(you)": "");    // if playerID = 
-                                    playersList += "\n\tPlayer ID: " + gamePlayerIDs[k] + ", PlantID: " + gamePlantIDs[k];
-                                }
-                                playerOutStreams[j].writeUTF(playersList);
-                            } catch (SQLException ex) {
-                                Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-
-                            
-                            boolean inputLoop;
-                            do {
-                                 inputLoop= false;
-                                playerOutStreams[j].writeUTF("enter attack (1) + plantToAttack + resource#, defend (2) or grow (3)");
-                                switch (getIntInRange(in, out, 1, 3, "select attack(1), defense(2) or grow(3)")) {
-                                    case 1:
-                                        playerOutStreams[j].writeUTF("select a plantID to attack.");
-                                        int plantToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
-                                        inputLoop = true;
-                                        String msg = "invalid plant to attack: ";
-                                        for (int k = 0; k < PLAYERSPERGAME; k++) {
-                                            if (plantToAttack == gamePlantIDs[k]) {
-                                                inputLoop = false;
-                                            }
-                                        }
-                                        if (inputLoop) {
-                                            msg += "plantID not found.";
-                                        }
-                                        else if (plantToAttack == plantID) {
-                                            inputLoop = true;
-                                            msg += "attack someone else's plant lol";
-                                        }
-                                        if (inputLoop) {
-                                            playerOutStreams[j].writeUTF(msg);
-                                            break;
-                                        }
-                                        playerOutStreams[j].writeUTF("select a resource # to attack.");
-                                        int resourceToAttack = getIntInRange(in, out, 1, 3, "Invalid resource number: choose 1-3");
-                                        try {
-                                            decResource(3, 1, plantID); //decrease  scent
-                                            hmapAttackData.put(plantToAttack, resourceToAttack);
-                                        } catch (SQLException ex) {
-                                            Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
-                                        } catch (NegativeResourceException ex) {
-                                            inputLoop = true;
-                                            playerOutStreams[j].writeUTF("not enough available resource. Make a new selection:");
-                                        }
-                                        break;
-                                    case 2://defend
-                                        System.out.println("defending");
-                                        defendingPlants.add(plantID);
-                                        break;
-                                    case 3://grow
-                                        System.out.println("growing");
-                                        growingPlants.add(plantID);
-                                        break;
-                                }
-                            } while (inputLoop);
-                        } catch (IOException e) {
-                        }  
-                        System.out.println("end of playerloop");
+                try {
+                    for (int i = 0; i < PLAYERSPERGAME; i++) {
+                        gamePlantSizeInitial[i] = getPlantSize(gamePlantIDs[i]);
                     }
-
-                    try {
-                        Statement stmt = con.createStatement();
-
-                        //ATTACKvv
-                        Set attackSet = hmapAttackData.entrySet();
-                        Iterator attackIterator = attackSet.iterator();
-
-                        while(attackIterator.hasNext()) {
-                            Map.Entry mentry = (Map.Entry)attackIterator.next();
-                            int plantToAttack = (int)mentry.getKey();
-                            int resourceToAttack;
-                            if (! defendingPlants.contains(plantToAttack)) {
-                                resourceToAttack = (int) mentry.getValue();
-
-                                try {
-                                    decResource(resourceToAttack, 4, plantToAttack);
-                                } catch (NegativeResourceException e) {
-                                    stmt.executeUpdate("Update PlantResActive Set resQuantity = 0 where fk_plant_plRA = " + plantToAttack 
-                                       + " and fk_resource_plRA = " + resourceToAttack + ";");
-                                }
-                           }
-                        }
-                        //GROW
-                        for (Integer gPlantID: growingPlants) {
-                            System.out.println("growing plant " + gPlantID);
-                            int typeOfPlant = getTypeOfPlant(gPlantID);
-                            if (! hmapAttackData.containsKey(gPlantID)) {
-                                    //SQL apply growth to each fk_plant_PlRA in plantResActive --> resQuantity = resQuantity + GROWCONSTANT*ln(score)
-//                                stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlantID 
-//                                       + ";");
-                                for (int j = 1; j <= 3; j++) {
-                                    double resQ = getResource(j, gPlantID);
-                                    System.out.printf(gPlantID + ": old: %.1f", resQ);
-                                    resQ = incResource(j, 1, typeOfPlant, gPlantID);  //applies modifiers
-                                    System.out.printf("new: %.1f", resQ);
-                                }
-                            }
-                        }
-                    } catch (SQLException ex) {
-                        System.out.println("EXCEPTION SKIPPING GROWTH");
-                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (SQLException ex) {
+                    Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                for (int s = 0; s < 4; s++) {   //seasons
+                    int season;
+                    switch (s) {
+                        case 0: season = SPRING; break;
+                        case 1: season = SUMMER; break;
+                        case 2: season = FALL; break;
+                        case 3: season = WINTER; break;
+                        default: season = SPRING; break;
                     }
-                    System.out.println("end of attack");
+                    String seasonName = "";
+                    switch (s) {
+                        case 0: seasonName += "spring"; break;
+                        case 1: seasonName += "summer"; break;
+                        case 2: seasonName += "fall"; break;
+                        case 3: seasonName += "winter"; break;
+                    }
                     
-                    for (int plantID: gamePlantIDs) {
+                    //instantiate game variables!
+                    for (int i = 0; i < 3; i++) {  //rounds
+                       HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
+
+                       ArrayList<Integer> defendingPlants = new ArrayList<Integer>();
+                       ArrayList<Integer> growingPlants = new ArrayList<Integer>();
+
+                       for (int j = 0; j < PLAYERSPERGAME; j++) { //players in game
+                           DataInputStream in = playerInStreams[j];
+                           DataOutputStream out = playerOutStreams[j];
+                           int playerID = gamePlayerIDs[j];
+                           int plantID = gamePlantIDs[j];
+                           int plantTypeID = gamePlantTypes[j];
+                           double modVal;
+                           int resActiveID;
+                           int resQuantity;
+
+                           ///vvv increment resource
+                           try {   //read from Client and perform gameplay operations
+                               out.writeUTF("The season is " + seasonName + "with sunlight " + season + "/10");
+                                try {
+                                    out.writeUTF("The following plants are in the game: ");
+                                    for (int k = 0; k < PLAYERSPERGAME; k++) {
+                                        out.writeUTF("Plant: " + getNameOfPlant(gamePlantIDs[k]) + ", size = " + getPlantSize(gamePlantIDs[k]) + ", growth in this game: " + gamePlantGrowths[k]);
+                                    }
+                                } catch (SQLException ex) {
+                                    Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                                    out.writeUTF("error reading plant list");
+                                }
+                              out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
+                                      + "and integer quantity to increment 1-10");
+                              int resourceID = getIntInRange(in, out, 1, 3, "Resources are numbered 1-3. Try again:");
+                              System.out.println("debugging1");
+                              int resourceAmount = getIntInRange(in, out, 1, 10, "enter integer 1-10:");
+                              System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
+
+                              Statement stmt;
+
+                               try {   //get modval for chosen resource
+                                   stmt = (Statement) con.createStatement();
+                                   ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+                                       + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+                                   resQRs.next();
+                                   double  rQ= resQRs.getDouble(1);
+                                   playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + String.format("%.1f", rQ));  
+                                   double newResQuantity = incResource(resourceID, resourceAmount, plantTypeID, plantID);
+                                   playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + newResQuantity);  
+
+
+                                   String playersList = "";
+                                   for (int k = 0; k < PLAYERSPERGAME; k++) {
+                                       int currPlayerID = gamePlayerIDs[k];
+                                       String nameOfPlayer =  getNameOfPlayer(currPlayerID);
+                                       playersList += "\nPlayer name: " + nameOfPlayer + ((playerID == gamePlayerIDs[k])? "(you)": "");    // if playerID = 
+                                       playersList += "\n\tPlayer ID: " + gamePlayerIDs[k] + ", PlantID: " + gamePlantIDs[k];
+                                   }
+                                   playerOutStreams[j].writeUTF(playersList);
+                               } catch (SQLException ex) {
+                                   Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                               }
+
+
+                               boolean inputLoop;
+                               do {
+                                    inputLoop= false;
+                                   playerOutStreams[j].writeUTF("enter attack (1) + plantToAttack + resource#, defend (2) or grow (3)");
+                                   switch (getIntInRange(in, out, 1, 3, "select attack(1), defense(2) or grow(3)")) {
+                                       case 1:
+                                           playerOutStreams[j].writeUTF("select a plantID to attack.");
+                                           int plantToAttack = in.readInt();    //throw exceptions for incorrect ID or ID same as Self
+                                           inputLoop = true;
+                                           String msg = "invalid plant to attack: ";
+                                           for (int k = 0; k < PLAYERSPERGAME; k++) {
+                                               if (plantToAttack == gamePlantIDs[k]) {
+                                                   inputLoop = false;
+                                               }
+                                           }
+                                           if (inputLoop) {
+                                               msg += "plantID not found.";
+                                           }
+                                           else if (plantToAttack == plantID) {
+                                               inputLoop = true;
+                                               msg += "attack someone else's plant lol";
+                                           }
+                                           if (inputLoop) {
+                                               playerOutStreams[j].writeUTF(msg);
+                                               break;
+                                           }
+                                           playerOutStreams[j].writeUTF("select a resource # to attack.");
+                                           int resourceToAttack = getIntInRange(in, out, 1, 3, "Invalid resource number: choose 1-3");
+                                           try {
+                                               decResource(3, 1, plantID); //decrease  scent
+                                               hmapAttackData.put(plantToAttack, resourceToAttack);
+                                           } catch (SQLException ex) {
+                                               Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                                           } catch (NegativeResourceException ex) {
+                                               inputLoop = true;
+                                               playerOutStreams[j].writeUTF("not enough available resource. Make a new selection:");
+                                           }
+                                           break;
+                                       case 2://defend
+                                           System.out.println("defending");
+                                           defendingPlants.add(plantID);
+                                           break;
+                                       case 3://grow
+                                           System.out.println("growing");
+                                           growingPlants.add(plantID);
+                                           break;
+                                   }
+                               } while (inputLoop);
+                           } catch (IOException e) {
+                           }  
+                           System.out.println("end of playerloop");
+                       }
+
+                       try {
+                           Statement stmt = con.createStatement();
+
+                           //ATTACKvv
+                           Set attackSet = hmapAttackData.entrySet();
+                           Iterator attackIterator = attackSet.iterator();
+
+                           while(attackIterator.hasNext()) {
+                               Map.Entry mentry = (Map.Entry)attackIterator.next();
+                               int plantToAttack = (int)mentry.getKey();
+                               int resourceToAttack;
+                               if (! defendingPlants.contains(plantToAttack)) {
+                                   resourceToAttack = (int) mentry.getValue();
+
+                                   try {
+                                       decResource(resourceToAttack, 4, plantToAttack);
+                                   } catch (NegativeResourceException e) {
+                                       stmt.executeUpdate("Update PlantResActive Set resQuantity = 0 where fk_plant_plRA = " + plantToAttack 
+                                          + " and fk_resource_plRA = " + resourceToAttack + ";");
+                                   }
+                              }
+                           }
+                           //GROW
+                           for (Integer gPlantID: growingPlants) {
+                               System.out.println("growing plant " + gPlantID);
+                               int typeOfPlant = getTypeOfPlant(gPlantID);
+                               if (! hmapAttackData.containsKey(gPlantID)) {
+                                       //SQL apply growth to each fk_plant_PlRA in plantResActive --> resQuantity = resQuantity + GROWCONSTANT*ln(score)
+   //                                stmt.executeUpdate("Update PlantResActive Set resQuantity = resQuantity + " + 1 + " where fk_plant_plRA = " + gPlantID 
+   //                                       + ";");
+                                   for (int j = 1; j <= 3; j++) {
+                                       double resQ = getResource(j, gPlantID);
+                                       System.out.printf(gPlantID + ": old: %.1f", resQ);
+                                       resQ = incResource(j, 1, typeOfPlant, gPlantID);  //applies modifiers
+                                       System.out.printf("new: %.1f", resQ);
+                                   }
+                               }
+                           }
+                       } catch (SQLException ex) {
+                           System.out.println("EXCEPTION SKIPPING GROWTH");
+                           Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                       }
+                       System.out.println("end of attack");
+                       
                         try {
-                            int plantSize = applyGrowth(plantID, 5);
-                            System.out.println("plantSize for plant " + plantID + ": " + plantSize);
+                            for (int plantID: gamePlantIDs) {
+                                int plantSize = applyGrowth(plantID, season);
+                                System.out.println("plantSize for plant " + plantID + ": " + plantSize);
+                            }
+
+                            for (int j = 0; j < PLAYERSPERGAME; j++) {
+                                gamePlantGrowths[j] = getPlantSize(gamePlantIDs[j]) - gamePlantSizeInitial[j];
+                            }
                         } catch (SQLException ex) {
-                            Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
-                            System.out.println(plantID);
+                                Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    }
+                   }
                 }
                 
             }).start();
@@ -400,12 +456,17 @@ public class PlantGameServer {
         }
     }
     
+    private static int getPlantSize(int plantID) throws SQLException{
+         Statement stmt = (Statement) con.createStatement();
+        ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
+        rs.next();
+        return rs.getInt(1);
+    }
+    
     private static int applyGrowth(int plantID, int sunlight) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         
-        ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
-        rs.next();
-        int size = rs.getInt(1);
+        int size = getPlantSize(plantID);
         double water = getResource(1, plantID);
         double soil = getResource(2, plantID);
         
@@ -489,6 +550,8 @@ public class PlantGameServer {
         stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resQuantity - resourceAmount)  + " where id_plantResActive = " + resActiveID + ";");
         return resQuantity - resourceAmount;
     }
+    
+    
     
     
     private static void loadPlayerPlantData(int currPlayer, Integer[] gamePlayerIDs, Integer[] gamePlantIDs, String plantName, int plantType) throws SQLException{
