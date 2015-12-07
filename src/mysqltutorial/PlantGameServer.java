@@ -134,6 +134,7 @@ public class PlantGameServer {
         return myRs.getInt(1);
     }
     
+    
 
     
     public static void main(String[] args){
@@ -381,12 +382,45 @@ public class PlantGameServer {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     System.out.println("end of attack");
+                    
+                    for (int plantID: gamePlantIDs) {
+                        try {
+                            int plantSize = applyGrowth(plantID, 5);
+                            System.out.println("plantSize for plant " + plantID + ": " + plantSize);
+                        } catch (SQLException ex) {
+                            Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
+                            System.out.println(plantID);
+                        }
+                    }
                 }
                 
             }).start();
         } catch (IOException ex) {
             Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private static int applyGrowth(int plantID, int sunlight) throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        
+        ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
+        rs.next();
+        int size = rs.getInt(1);
+        double water = getResource(1, plantID);
+        double soil = getResource(2, plantID);
+        
+        size += (((int)(water*10)) + ((int)(soil*10)))*sunlight;
+        
+        stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + plantID + ";");
+        return size;
+    }
+    
+    private static double getResource(int resource, int plantID) throws SQLException {
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet rs = stmt.executeQuery("select resQuantity from PlantResActive where fk_plant_PlRA = " + plantID
+        + " and fk_resource_PlRA = " + resource);
+        rs.next();
+        return Math.floor(rs.getDouble(1) * 10) / 10;
     }
     
     private static int printPlantTypesAvailable(DataOutputStream out) throws SQLException, IOException {
@@ -410,15 +444,15 @@ public class PlantGameServer {
         return i; //returns number of available plantTypes
     }
     
-    private static double getResource(int resourceID, int plantID) throws SQLException{
-        Statement stmt = (Statement) con.createStatement();
-        //get resource quantity from PlantResActive
-        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
-            + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
-        resQRs.next();
-        double resQuantity = resQRs.getDouble(1);
-        return resQuantity;
-    }
+//    private static double getResource(int resourceID, int plantID) throws SQLException{
+//        Statement stmt = (Statement) con.createStatement();
+//        //get resource quantity from PlantResActive
+//        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + plantID 
+//            + " and PlantResActive.fk_resource_PlRA = " + resourceID + ";");
+//        resQRs.next();
+//        double resQuantity = resQRs.getDouble(1);
+//        return resQuantity;
+//    }
     
     private static double incResource(int resourceID, int resourceAmount, int plantTypeID, int plantID) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
@@ -471,8 +505,9 @@ public class PlantGameServer {
         try {
         // LOAD PLANTLIST //give plant temp unique name
             Statement stmt = (Statement) con.createStatement();
-            stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
-            + "', " + plantType + ");");
+            stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) \n values ('" + plantName
+            + "', " + plantType + ", 0" + ");");
+            
 
             Statement stmt2 = (Statement) con.createStatement();
             ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
