@@ -553,7 +553,7 @@ public class PlantGameServer {
     
     
     
-    
+    //REWRITE THIS! insert IF NOT EXISTS
     private static void loadPlayerPlantData(int currPlayer, Integer[] gamePlayerIDs, Integer[] gamePlantIDs, String plantName, int plantType) throws SQLException{
 
         //ADD Player + Gamenum to MasterList
@@ -566,25 +566,28 @@ public class PlantGameServer {
         }
 
         try {
-        // LOAD PLANTLIST //give plant temp unique name
             Statement stmt = (Statement) con.createStatement();
-            stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) \n values ('" + plantName
-            + "', " + plantType + ", 0" + ");");
+//        // LOAD PLANTLIST //give plant temp unique name
+//            
+//            stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) \n values ('" + plantName
+//            + "', " + plantType + ", 0" + ");");
+//            
+//
+//            Statement stmt2 = (Statement) con.createStatement();
+//            ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
+//            plantIdrst.next();
+//            int plantId = plantIdrst.getInt(1);
+//            gamePlantIDs[currPlayer] = plantId;
+//
+//        //LOAD PLAYERPLANTS
+//            stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
+//            + ", " + plantId + ");");
+            findAndLoadPlantID(plantName, gamePlantIDs, plantType, gamePlayerIDs[currPlayer], currPlayer);
             
-
-            Statement stmt2 = (Statement) con.createStatement();
-            ResultSet plantIdrst = stmt2.executeQuery("select id_Plant from PlantList where PlantList.plantName = \"" + plantName + "\";");
-            plantIdrst.next();
-            int plantId = plantIdrst.getInt(1);
-            gamePlantIDs[currPlayer] = plantId;
-
-        //LOAD PLAYERPLANTS
-            stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
-            + ", " + plantId + ");");
-
+            
         //  LOAD PLANTRESACTIVE
             for (int j = 1; j < 4; j++) {   //start with 3 of each resource
-                stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + plantId
+                stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + gamePlantIDs[currPlayer]
                 + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
             }
         } catch (SQLException ex) {
@@ -593,10 +596,47 @@ public class PlantGameServer {
                             
     }
     
+    
+    private static Integer[] findAndLoadPlantID(String plantName, Integer[] gamePlantIDs, int plantType, int playerID, int currentPlayer) throws SQLException {
+        int plantID =-1; //just to keep compiler happy.
+        plantName = plantName.trim();
+        boolean plantFound = false;
+        Statement stmt = (Statement) con.createStatement();
+        
+        //looks for plant with given name. plantFound set true if found.
+        ResultSet plantIDRs = stmt.executeQuery("select fk_plant_Plpl from PlayerPlants where fk_Player_Plpl = " + playerID);
+        while (plantIDRs.next()) {
+            int tuplePlantID = plantIDRs.getInt(1);
+            ResultSet plantNameRs = stmt.executeQuery("select plantName from PlantList where id_plant = " + plantID);
+            while (plantNameRs.next()) {
+                if (plantNameRs.getString(1).equals(plantName)) {
+                    plantFound = true;
+                    plantID = tuplePlantID;
+                }
+            }
+        }
+        if (!plantFound) {
+            stmt.executeUpdate("insert into PlantList(plantName, fk_plantType_PlLi, size) \n values (\"" + plantName + "\", " + plantType + ", " + 0 + ");");
+            ResultSet idPlant = stmt.executeQuery("select id_plant from PlantList where plantName = \"" + plantName + "\";");
+            idPlant.next();
+            plantID = idPlant.getInt(1);
+            stmt.executeUpdate("insert into PlayerPlants(fk_player_Plpl, fk_plant_Plpl) \n values (" + playerID 
+                    + ", " + plantID + ");");
+        }
+        if (plantID == -1)
+            throw new SQLException("fuck plantID not initialized");
+        gamePlantIDs[currentPlayer] = plantID;
+        System.out.println("plant ID:" + gamePlantIDs[currentPlayer]);
+        return gamePlantIDs;
+    }
+        
+
+    
     private static Integer[] findAndLoadPlayerID(String playerName, Integer[] gamePlayerIDs, int currentPlayer) throws SQLException {
+        playerName = playerName.trim();
         boolean playerFound = false;
         Statement stmt = (Statement) con.createStatement();
-        ResultSet myRs = stmt.executeQuery("select * from Player");
+        ResultSet myRs = stmt.executeQuery("select playerName from Player");
         System.out.println("finding and loading playerID!");
         while (myRs.next()) {
             if (myRs.getString(1).equals(playerName.trim())) {
