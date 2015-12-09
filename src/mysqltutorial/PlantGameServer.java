@@ -1,8 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package mysqltutorial;
 
 import java.io.DataInputStream;
@@ -25,12 +21,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
-
-/**
- *
- * @author mishakanai
- */
-
 
 public class PlantGameServer {
     private final static int SPRING = 8;
@@ -582,13 +572,12 @@ public class PlantGameServer {
 //        //LOAD PLAYERPLANTS
 //            stmt.executeUpdate("insert into PlayerPlants (fk_player_Plpl, fk_plant_Plpl) \n values (" + gamePlayerIDs[currPlayer]
 //            + ", " + plantId + ");");
-            findAndLoadPlantID(plantName, gamePlantIDs, plantType, gamePlayerIDs[currPlayer], currPlayer);
-            
-            
-        //  LOAD PLANTRESACTIVE
-            for (int j = 1; j < 4; j++) {   //start with 3 of each resource
-                stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + gamePlantIDs[currPlayer]
-                + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
+            if (findAndLoadPlantID(plantName, gamePlantIDs, plantType, gamePlayerIDs[currPlayer], currPlayer)) {
+                //LOAD PLANTRESACTIVE
+                for (int j = 1; j < 4; j++) {   //start with 3 of each resource
+                    stmt.executeUpdate("insert into PlantResActive (fk_plant_PlRA, fk_resource_PlRA, resQuantity) \n values (" + gamePlantIDs[currPlayer]
+                    + ", " + j + ", " + 5 + ");"); // CHEATING!!! our resources are numbered 1->3 in the database lol
+                }
             }
         } catch (SQLException ex) {
             Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
@@ -597,7 +586,7 @@ public class PlantGameServer {
     }
     
     
-    private static Integer[] findAndLoadPlantID(String plantName, Integer[] gamePlantIDs, int plantType, int playerID, int currentPlayer) throws SQLException {
+    private static boolean findAndLoadPlantID(String plantName, Integer[] gamePlantIDs, int plantType, int playerID, int currentPlayer) throws SQLException {
         int plantID =-1; //just to keep compiler happy.
         plantName = plantName.trim();
         boolean plantFound = false;
@@ -605,13 +594,21 @@ public class PlantGameServer {
         
         //looks for plant with given name. plantFound set true if found.
         ResultSet plantIDRs = stmt.executeQuery("select fk_plant_Plpl from PlayerPlants where fk_Player_Plpl = " + playerID);
+        
+        Statement stmt2 = (Statement) con.createStatement();
+        ResultSet plantNameAndTypeRs;
+        
         while (plantIDRs.next()) {
             int tuplePlantID = plantIDRs.getInt(1);
-            ResultSet plantNameRs = stmt.executeQuery("select plantName from PlantList where id_plant = " + plantID);
-            while (plantNameRs.next()) {
-                if (plantNameRs.getString(1).equals(plantName)) {
-                    plantFound = true;
-                    plantID = tuplePlantID;
+            
+            plantNameAndTypeRs = stmt2.executeQuery("select plantName, fk_plantType_PlLi from PlantList where id_plant = " + tuplePlantID);
+            
+            while (plantNameAndTypeRs.next()) {
+                if (plantNameAndTypeRs.getString(1).trim().equals(plantName)) {
+                    if (plantType == plantNameAndTypeRs.getInt(2)) {
+                        plantFound = true;
+                        plantID = tuplePlantID;
+                    }
                 }
             }
         }
@@ -627,7 +624,7 @@ public class PlantGameServer {
             throw new SQLException("fuck plantID not initialized");
         gamePlantIDs[currentPlayer] = plantID;
         System.out.println("plant ID:" + gamePlantIDs[currentPlayer]);
-        return gamePlantIDs;
+        return !plantFound;
     }
         
 
