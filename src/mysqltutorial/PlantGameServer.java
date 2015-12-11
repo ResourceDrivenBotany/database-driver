@@ -114,20 +114,21 @@ public class PlantGameServer {
             stmt.executeUpdate("insert into PlantTypeResMod (fk_plantType_PTRM, fk_resource_PTRM, modVal)\n" +
                     "values (2, 3, 1.1)");
     }
-    
+    //check
     private static String getNameOfPlayer(int playerID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select playerName from Player where id_player = " + playerID + ";");
         myRs.next();
         return myRs.getString(1);
     }
-    
+    //check
     private static int getTypeOfPlant(int plantID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select fk_plantType_PlLi from plantList where id_plant = " + plantID + ";");
         myRs.next();
         return myRs.getInt(1);
     }
+    //check
     private static String getNameOfPlant(int plantID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select plantName from plantList where id_plant = " + plantID + ";");
@@ -140,7 +141,7 @@ public class PlantGameServer {
     
     public static void main(String[] args){
          try {
-            con = DriverManager.getConnection("jdbc:mysql://localhost:3306/plantgamedb", "root", "");
+            con = DriverManager.getConnection("jdbc:mysql://localhost:3306/plantgamedb", "root", "redwall");
          } catch (SQLException ex) {
             Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -445,14 +446,14 @@ public class PlantGameServer {
             Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+    //check
     private static int getPlantSize(int plantID) throws SQLException{
          Statement stmt = (Statement) con.createStatement();
         ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
         rs.next();
         return rs.getInt(1);
     }
-    
+    //check
     private static int applyGrowth(int plantID, int sunlight) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         
@@ -465,7 +466,7 @@ public class PlantGameServer {
         stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + plantID + ";");
         return size;
     }
-    
+    //check ish
     private static double getResource(int resource, int plantID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet rs = stmt.executeQuery("select resQuantity from PlantResActive where fk_plant_PlRA = " + plantID
@@ -473,7 +474,7 @@ public class PlantGameServer {
         rs.next();
         return Math.floor(rs.getDouble(1) * 10) / 10;
     }
-    
+    //check
     private static int printPlantTypesAvailable(DataOutputStream out) throws SQLException, IOException {
         Statement stmtPT = (Statement) con.createStatement();
         Statement stmtPTRM = (Statement) con.createStatement();
@@ -505,6 +506,7 @@ public class PlantGameServer {
 //        return resQuantity;
 //    }
     
+    //check
     private static double incResource(int resourceID, int resourceAmount, int plantTypeID, int plantID) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + plantTypeID 
@@ -523,7 +525,7 @@ public class PlantGameServer {
         stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (resourceAmount*modVal + resQuantity)  + " where id_plantResActive = " + resActiveID + ";");
         return resourceAmount*modVal + resQuantity;
     }
-    
+    //check
     private static double decResource(int resourceID, int resourceAmount, int plantID) throws SQLException, NegativeResourceException{
         Statement stmt = (Statement) con.createStatement();
 
@@ -544,6 +546,7 @@ public class PlantGameServer {
     
     
     //REWRITE THIS! insert IF NOT EXISTS
+    //check
     private static void loadPlayerPlantData(int currPlayer, Integer[] gamePlayerIDs, Integer[] gamePlantIDs, String plantName, int plantType) throws SQLException{
 
         //ADD Player + Gamenum to MasterList
@@ -585,7 +588,7 @@ public class PlantGameServer {
                             
     }
     
-    
+    //check
     private static boolean findAndLoadPlantID(String plantName, Integer[] gamePlantIDs, int plantType, int playerID, int currentPlayer) throws SQLException {
         int plantID =-1; //just to keep compiler happy.
         plantName = plantName.trim();
@@ -628,7 +631,7 @@ public class PlantGameServer {
     }
         
 
-    
+    //check
     private static Integer[] findAndLoadPlayerID(String playerName, Integer[] gamePlayerIDs, int currentPlayer) throws SQLException {
         playerName = playerName.trim();
         boolean playerFound = false;

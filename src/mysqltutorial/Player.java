@@ -20,6 +20,7 @@ class Player {
     int fkPlayerPlantPlayer;    
     //PlayerPlant list is irrelevent
     
+    
     private Player(String name, int ID, int fk){
         this.playerName = name;
         this.playerID = ID;
@@ -29,10 +30,37 @@ class Player {
     
     //setters
     
+    void setPlayerName(String name){
+        this.playerName = name;
+    }
+    
+    void setPlayerID(int ID){
+        this.playerID = ID;
+    }
+    
+    void setfkPlayerPlant(int fk){
+        this.fkPlayerPlantPlayer = fk;
+    }
+    
+    String getPlayerName(){
+        return playerName;
+    }
+    
+    int getPlayerID(){
+        return playerID;
+    }
+    
+    int setfkPlayerPlant(){
+        return fkPlayerPlantPlayer;
+    }
+    
     class Plant{
-        
-        private Plant(String name, int ID, int tID){
-        
+        //need to change how players and their plants are inserted
+        //in order to use this constructor
+        private Plant(String name, int plantID, int typeID){
+        this.plantName = name;
+        this.plantID = plantID;
+        this.plantTypeID = typeID;
         }
         private Plant(){}
         String plantName;

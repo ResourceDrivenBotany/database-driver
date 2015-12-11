@@ -26,8 +26,11 @@ class BotanyDatabase{
     private static final String TWO = "2";
     private static final String THREE = "3";
     private static final String GAME_NAME = "DEFAULTGAME";
+    private static final Integer CURR_GAME_NUM = 1;
     private static Integer CURRENT_GAME = 1;
     private static final Integer NUM_TYPES = 3;
+    private static final Integer BASE_SIZE = 0;
+    private static final Integer DEFAULT_RES_QUANT = 10;
     
     static Connection con;
 
@@ -41,9 +44,9 @@ class BotanyDatabase{
                
         try{            
             //insertion 
+            typeInit(1, "Flower");
+            typeInit(1, "Vine");
             typeInit(1, "Orchid");
-            typeInit(1, "Venus Flytrap");
-            typeInit(1, "Monkshood");
             
             resRefInit(1, 2, "water", 1);
             resRefInit(1, 2, "soil", 1);
@@ -63,7 +66,7 @@ class BotanyDatabase{
             //EHANCED SCENTS
             resModInit(1, 2, 3, 2, 1, 1.0);
             resModInit(1, 2, 3, 2, 2, 1.0);
-            resModInit(1, 2, 3, 2, 3, 1.1);
+            resModInit(1, 2, 3, 2, 3, 1.2);
             
             //MonksHood
             //ENHANCED MAJOR soil
@@ -125,104 +128,78 @@ class BotanyDatabase{
         return map;
     }
     
-    public static void checkPlayerName(String name)throws SQLException, NameExistsException{
+    public static boolean checkPlayerName(String name)throws SQLException, NameExistsException{
         Statement stmt = (Statement) con.createStatement();
         ResultSet rs = stmt.executeQuery("Select playerName from Players where playerName = " + name + ";)");
         if(rs.next())            
-            throw new NameExistsException();        
+            return true;
+        //throw new NameExistsException();
+        else
+            return false;            
     }
-    public static void checkPlantName(String name)throws SQLException, NameExistsException{
+    public static boolean checkPlantName(String name, Player player)throws SQLException, NameExistsException{
+        //what we have: player ID, player name, plant name
+        int id;
         Statement stmt = (Statement) con.createStatement();
-        ResultSet rs = stmt.executeQuery("Select plantName from PlantList where plantName = " + name + ";)");
-        if(rs.next())            
-            throw new NameExistsException();  
+        ResultSet rs = stmt.executeQuery("Select id_Plant from PlantList where PlantList.plantName = " + name + ";)");
+        if(!rs.next()) //if no plants exist with that name
+            return false;
+        id = rs.getInt(1);
+        ResultSet rs2 = stmt.executeQuery("Select fk_plant_Plpl from PlayerPlants where fk_player_Plpl = " + player.playerID + " and fk_plant_Plpl = " + id);
+        if(rs.next()) //if plant name exists AND belongs to current player            
+            return true;
+        else
+            return false;
     }
     
-    public static double getResQuant(Player player, int resID) throws SQLException{
-        Statement stmt = (Statement) con.createStatement();
-        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
-            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
-        //Why get next?
-        //resQRs.next();
-        double rQ= resQRs.getDouble(1);
-        return rQ;
-    }
-    public static double incResQuant(Player player, int resID, int resQ)throws SQLException{
-        Statement stmt = (Statement) con.createStatement();
-        ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.plantTypeID
-            + " and PlantTypeResMod.fk_resource_PTRM = " + resID + ";");
-        ptrmRs.next();
-        Double modVal = ptrmRs.getDouble(1);
-
-        //get resource quantity from PlantResActive
-        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
-            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
-        resQRs.next();
-        int resActiveID = resQRs.getInt(1);
-        //double resQuantity = resQRs.getDouble(2);
-        //playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
-        double newResQ = resQ*modVal + player.plant.resourceQuants[resID];
-        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (newResQ) + " where id_plantResActive = " + resActiveID + ";");
-        return newResQ;
-    }
-    public static double decResQuant(Player player, int resID, int resQ) throws SQLException, NegativeResourceException{
-        Statement stmt = (Statement) con.createStatement();
-
-        //get resource quantity from PlantResActive
-        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID
-            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
-        resQRs.next();
-        int resActiveID = resQRs.getInt(1);
-        double oldResQ = player.plant.resourceQuants[resID];
-        if (oldResQ - resQ < 0) {
-            throw new NegativeResourceException();
-        }
-        double newResQ = oldResQ - resQ; 
-        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + (newResQ)  + " where id_plantResActive = " + resActiveID + ";");
-        return newResQ;
-    }
-    public static int getPlayerID(int plantID)throws SQLException{
-        Statement stmt = (Statement) con.createStatement();
-        ResultSet myRS = stmt.executeQuery("Select fk_player_Plpl from PlayerPlants where PlayerPlants.fk_plants_PLpl = " + plantID + ";)");
-        return myRS.getInt(1);
-    }
-    
-    public static int applyGrowth(Player player, int sunlight) throws SQLException{
-        Statement stmt = (Statement) con.createStatement();
-        
-        int size = player.plant.size;
-        double water = player.plant.resourceQuants[1];
-        double soil = player.plant.resourceQuants[2];
-        
-        size += (((int)(water*10)) + ((int)(soil*10)))*sunlight;
-        
-        stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + player.plant.plantID + ";");
-        return size;
-    }
-    
-    //I kinda want to insert the plant along with the plant here, since we have the player id
-    //Mine
-    public static int insertPlayer(Player player) throws SQLException{
-        //get list of players
-        //int currID;
-        //TreeMap<Integer, String> map = getPlayers();
+    public static int insertNewPlayer(Player player) throws SQLException{
         ResultSet id;
         Statement stmt = (Statement) con.createStatement();
         
             stmt.executeUpdate("insert into Player(playerName) values ('" + player.playerName + "')");
             id = stmt.executeQuery("select id_player from Player where Player.playerName = " + player.playerName + ";");                        
+            id.next();
             return id.getInt(1); 
     }
     
-     public static int getPlantSize(int plantID) throws SQLException{
-         Statement stmt = (Statement) con.createStatement();
-        ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
-        rs.next();
-        return rs.getInt(1);
+    public static int findExistingPlayer(Player player) throws SQLException{
+        ResultSet id;
+        Statement stmt = (Statement) con.createStatement();
+        
+        id =stmt.executeQuery("select id_player from Player where Player.playerName = " + player.playerName + ";");
+        id.next();
+        return id.getInt(1);
     }
-    
-    
-        //Misha's
+    public static int insertNewPlant(Player player)throws SQLException{
+        ResultSet id;
+        int plantID;
+        Statement stmt = (Statement) con.createStatement();
+        stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) values ('" + player.plant.plantName
+            + "', " + player.plant.plantTypeID + ", " + BASE_SIZE + ");");
+        id = stmt.executeQuery("select id_plant from PlantList where plantName = " + player.plant.plantName + ";");
+        id.next();
+        plantID = id.getInt(1);
+        stmt.executeUpdate("insert into PlayerPlants(fk_player_Plpl, fk_plant_Plpl) values (" + player.playerID 
+                    + ", " + plantID + ");");
+        return plantID;
+        
+    }
+    public static void loadPlayer(Player player)throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        stmt.executeUpdate("insert into Masterlist (fk_game_Mas, fk_player_Mas) values (" 
+                + CURR_GAME_NUM + ", " + player.playerID + ");");
+        
+        
+    }
+    public static int findExistingPlant(Player player)throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+         ResultSet plantID = stmt.executeQuery("select fk_plant_Plpl, id_Plant from PlayerPlants, PlantList where PlayerPlants.fk_Player_Plpl = " + player.playerID + " and PlantList.plantName = " + player.plant.plantName);
+         if(plantID.next())
+             return plantID.getInt(2);         
+         else
+            return 0; //just in case, should never return zero since plant name was already checked for existence 
+    }
+            //Misha's
         private static Integer[] findAndLoadPlayerID(String playerName, Integer[] gamePlayerIDs, int currentPlayer) throws SQLException {
         boolean playerFound = false;
         Statement stmt = (Statement) con.createStatement();
@@ -285,26 +262,95 @@ class BotanyDatabase{
                             
     }
     
-    public static boolean insertPlant(int plantType, String plantName) throws SQLException{
-        
-    }
-    
-    public static boolean insertPlant(int plantType, String playerName, String plantName) throws SQLException{
-        //allow duplicate plant names?
-        //don't see why not
-        Statement
-        stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi) \n values ('" + plantName
-                                + "', " + plantType + ");");
-    }
-    
-    private static get playerID(){}
-    
-   private static int getPlantSize(int plantID) throws SQLException{
+    public static double getResQuant(Player player, int resID) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
+        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
+            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
+        //Why get next?
+        resQRs.next();
+        double rQ= resQRs.getDouble(1);
+        return rQ;
+    }
+    
+    public static double getResModVal(Player player, int resID)throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet rsVals = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.plantTypeID
+            + " and PlantTypeResMod.fk_resource_PTRM = " + resID + ";");
+        rsVals.next();
+        return rsVals.getDouble(1);
+    }
+    
+    public static double incResQuant(Player player, int resID, int resQ)throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.plantTypeID
+            + " and PlantTypeResMod.fk_resource_PTRM = " + resID + ";");
+        ptrmRs.next();
+        Double modVal = getResModVal(player, resID);
+
+        //get resource quantity from PlantResActive
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
+            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
+        resQRs.next();
+        int resActiveID = resQRs.getInt(1);
+        //double resQuantity = resQRs.getDouble(2);
+        //playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
+        double newResQ = resQ*modVal + player.plant.resourceQuants[resID];
+        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + newResQ + " where id_plantResActive = " + resActiveID + ";");
+        return newResQ;
+    }
+    
+    public static double decResQuant(Player player, int resID, int resQ) throws SQLException, NegativeResourceException{       
+        Statement stmt = (Statement) con.createStatement();
+        //get resource quantity from PlantResActive
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID
+            + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
+        resQRs.next();
+        int resActiveID = resQRs.getInt(1);
+        double oldResQ = player.plant.resourceQuants[resID+1];//cause array index + 1 = id number
+        if (oldResQ - resQ < 0) {
+            throw new NegativeResourceException();
+        }
+        double newResQ = oldResQ - resQ; 
+        stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + newResQ  + " where id_plantResActive = " + resActiveID + ";");
+        return newResQ;
+    }
+    
+    public static int getPlayerID(int plantID)throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRS = stmt.executeQuery("Select fk_player_Plpl from PlayerPlants where PlayerPlants.fk_plants_PLpl = " + plantID + ";)");
+        return myRS.getInt(1);
+    }
+    
+    public static int applyGrowth(Player player, int sunlight) throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        
+        int size = player.plant.size;
+        double water = player.plant.resourceQuants[1];
+        double soil = player.plant.resourceQuants[2];
+        
+        size += (((int)(water*10)) + ((int)(soil*10)))*sunlight;
+        
+        stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + player.plant.plantID + ";");
+        return size;
+    }
+    
+    //I kinda want to insert the plant along with the plant here, since we have the player id
+    //Mine
+
+     public static int getPlantSize(int plantID) throws SQLException{
+         Statement stmt = (Statement) con.createStatement();
         ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
         rs.next();
         return rs.getInt(1);
     }
+
+    
+   //private static int getPlantSize(int plantID) throws SQLException{
+     //   Statement stmt = (Statement) con.createStatement();
+       // ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
+       // rs.next();
+     //   return rs.getInt(1);
+    //}
    private static String getNameOfPlayer(int playerID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select playerName from Player where id_player = " + playerID + ";");
@@ -318,21 +364,28 @@ class BotanyDatabase{
         myRs.next();
         return myRs.getInt(1);
     }
-    private static ResultSet getAllTypes() throws SQLException{
+    public static String[] getAllTypes() throws SQLException{
         Statement stmt = (Statement) con.createStatement();
-        ResultSet myRs = stmt.executeQuery("select * from PlantType;");
-        return myRs;
+        ResultSet nameRS = stmt.executeQuery("select * from plantType");
+        String[] types = new String[NUM_TYPES*2];
+        int index = 0;
+        while(nameRS.next()){ 
+            types[index] = Integer.toString(nameRS.getInt(2));
+            types[++index] = nameRS.getString(1);           
+            index++;
+        }
+        return types;        
     }
     
-    private static ResultSet getAllTypeModVals(String plantType) throws SQLException{
+    public static String getTypeModVals(int plantType) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery(
                 "select fk_resource_PTRM, modval from plantTypeResMod where fk_plantType_PTRM = " +
                         plantType);
-        return myRs;       
+        String info = "\tResource num: " + myRs.getInt(1) + ", Resource modifier: " + String.format("%1f", myRs.getDouble(2));
+        return info;      
     }
     
-    private static 
     private static String getNameOfPlant(int plantID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select plantName from plantList where id_plant = " + plantID + ";");

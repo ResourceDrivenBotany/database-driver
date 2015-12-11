@@ -85,9 +85,23 @@ public class TempServerMain {
         return fromClient;
     }
     
+    private static void printTypesAndInfo(DataOutputStream out) throws IOException, SQLException{
+        String[] types = BotanyDatabase.getAllTypes(); //types followed by names
+        String info;
+        int c = 0;
+        int typeID;
+        while(c < types.length){
+            typeID = Integer.parseInt(types[c]);
+            out.writeUTF("PlantType: " + types[c++] + ", Name: " + types[c++]);
+            info = BotanyDatabase.getTypeModVals(typeID);
+            out.writeUTF(info);            
+        }
+    }
+    
     public static void main(String[] args){
         
-        BotanyDatabase db;
+        //BotanyDatabase db;
+         
         
         
         try {
@@ -137,12 +151,16 @@ public class TempServerMain {
         
         ServerSocket serverSocket;
         try {
+            
             serverSocket = new ServerSocket(8000);
             for (int i = 0; i < PLAYERSPERGAME; i++) {
                 new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
 
                     try {
-                         Socket socket = serverSocket.accept();
+                        Socket socket = serverSocket.accept();
+                         
+                        boolean playerExists = false;
+                        boolean plantExists = false;
 
                         DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
                         DataOutputStream outputToClient = new DataOutputStream(socket.getOutputStream());
@@ -158,26 +176,19 @@ public class TempServerMain {
 
                             // Read in from client
                             outputToClient.writeUTF("Enter player's name! \n(will be created in database if doesn't exist):");
-                            String playerName = inputFromClient.readUTF();                     
+                            String playerName = inputFromClient.readUTF().trim();                     
                             outputToClient.writeUTF("Enter plant's name! \n(will be created in database if doesn't exist):");
-                            String plantName = inputFromClient.readUTF();
-                            
-                            //returns true if name already exists
-                            try{
-                            BotanyDatabase.checkPlayerName(playerName);                            
-                            BotanyDatabase.checkPlantName(plantName);
-                            }
-                            catch(SQLException ex) {                            
-                            }
-                            
-                            gamePlayers[currPlayer].playerName = playerName.trim();
-                            gamePlayers[currPlayer].plant.plantName = plantName.trim();
-                            
+                            String plantName = inputFromClient.readUTF().trim();
+                                                        
                             outputToClient.writeUTF("Enter your plantType Number. Available plantTypes: ");
                             try {
                                 //int numberOfTypes = printPlantTypesAvailable(outputToClient);
+                                printTypesAndInfo(outputToClient);
                                 int plantType = getIntInRange(inputFromClient, outputToClient, MIN_TYPE, MAX_TYPE, "Invalid Type. Enter an integer:");
-                                gamePlayers[currPlayer].plant.plantTypeID = plantType;
+                                //gamePlayers[currPlayer].plant.plantTypeID = plantType;
+                                playerExists = BotanyDatabase.checkPlayerName(playerName);
+                                gamePlayers[currPlayer].playerName = playerName;
+
                                 //gamePlantTypes[currPlayer] = plantType;
                                 
                                 //print local variables
@@ -185,12 +196,33 @@ public class TempServerMain {
                                 //print array
                                 System.out.println("playername: " + gamePlayers[currPlayer].playerName + ", plantName: " 
                                         + gamePlayers[currPlayer].plant.plantName + ", plantType " + gamePlayers[currPlayer].plant.plantTypeID);
+                                System.out.println("Neither player nor player inserted into database yet");
                             
+                                
                                 //add player ID to gamePlayerIDs[]: creates player in database if not found
                                 //findAndLoadPlayerID(playerName, gamePlayerIDs, currPlayer);
                                 //loadPlayerPlantData(currPlayer, gamePlayerIDs, gamePlantIDs, plantName, plantType);
+                                if(playerExists){
+                                    int playerID = BotanyDatabase.findExistingPlayer(gamePlayers[currPlayer]);
+                                    gamePlayers[currPlayer].setPlayerID(playerID);
+                                }
+                                else if(!playerExists){ //not technically necessary, but good for code transparency
+                                    int playerID = BotanyDatabase.insertNewPlayer(gamePlayers[currPlayer]);
+                                    gamePlayers[currPlayer].setPlayerID(playerID);
+                                }
                                 
-                                gamePlayers[currPlayer].playerID = BotanyDatabase.insertPlayer(gamePlayers[currPlayer]);
+                                plantExists = BotanyDatabase.checkPlantName(plantName, gamePlayers[currPlayer]); //
+                                gamePlayers[currPlayer].plant.plantName = plantName;
+                                gamePlayers[currPlayer].plant.setTypeID(plantType);
+                                int plantID;
+                                if(plantExists){
+                                    plantID = BotanyDatabase.findExistingPlant(gamePlayers[currPlayer]);
+                                    gamePlayers[currPlayer].plant.setID(plantID);
+                                }
+                                else if(!plantExists){//not technically necessary, but good for code transparency
+                                    plantID = BotanyDatabase.insertNewPlant(gamePlayers[currPlayer]);
+                                    gamePlayers[currPlayer].plant.setID(plantID);
+                                }                         
                                 
                             } catch (SQLException ex) {
                                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
