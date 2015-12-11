@@ -52,7 +52,6 @@ public class PlantGameServer {
         ResultSet myRs;
         myRs = stmt.executeQuery("select * from PlantTypeResMod");
         return myRs.next();
-
     }
     
     private static int getIntLoop(DataInputStream in, DataOutputStream out, String message) throws IOException{
@@ -269,6 +268,8 @@ public class PlantGameServer {
                     
                     //instantiate game variables!
                     for (int i = 0; i < 3; i++) {  //rounds
+                        //INSERT THREAD HERE SO PLAYERS CAN ENTER DATA CONCURRENTLY
+                        //OTHERWISE, CLIENTS MUST WAIT ONE AT A TIME TO ENTER IN THEIR CHOICES
                        HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
 
                        ArrayList<Integer> defendingPlants = new ArrayList<Integer>();
@@ -315,7 +316,7 @@ public class PlantGameServer {
                                    double newResQuantity = incResource(resourceID, resourceAmount, plantTypeID, plantID);
                                    playerOutStreams[j].writeUTF("new quantity of resource " + resourceID + ": " + newResQuantity);  
 
-
+                                   //this is an issue
                                    String playersList = "";
                                    for (int k = 0; k < PLAYERSPERGAME; k++) {
                                        int currPlayerID = gamePlayerIDs[k];
@@ -364,6 +365,7 @@ public class PlantGameServer {
                                                Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
                                            } catch (NegativeResourceException ex) {
                                                inputLoop = true;
+                                               //only thrown if scents are insufficient. How can they choose another resource then?
                                                playerOutStreams[j].writeUTF("not enough available resource. Make a new selection:");
                                            }
                                            break;

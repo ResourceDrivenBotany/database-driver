@@ -12,12 +12,13 @@ package mysqltutorial;
 class Player {
     
     final int NUM_RESOURCES = 3;
-    String playerName;
-    int playerID;
+    
+    private String playerName;
+    private int playerID;
     Plant plant;
    
     //PlayerPlant list is irrelevent
-    int fkPlayerPlantPlayer;    
+    private int fkPlayerPlantPlayer;    
     //PlayerPlant list is irrelevent
     
     
@@ -29,7 +30,15 @@ class Player {
     }
     
     //setters
-    
+    String getPlayerName(){
+        return playerName;
+    }
+    int getPlayerID(){
+        return playerID;
+    }
+    int getFKPlplPlayer(){
+        return fkPlayerPlantPlayer;
+    }
     void setPlayerName(String name){
         this.playerName = name;
     }
@@ -40,14 +49,6 @@ class Player {
     
     void setfkPlayerPlant(int fk){
         this.fkPlayerPlantPlayer = fk;
-    }
-    
-    String getPlayerName(){
-        return playerName;
-    }
-    
-    int getPlayerID(){
-        return playerID;
     }
     
     int setfkPlayerPlant(){
@@ -62,22 +63,23 @@ class Player {
         this.plantID = plantID;
         this.plantTypeID = typeID;
         }
+        
         private Plant(){}
-        String plantName;
-        int plantID; //from Plantlist
+        private String plantName;
+        private int plantID; //from Plantlist
         
         //PlayerPlant list is irrelevent
-        int fkPlayerPlantPlant;
+        private int fkPlayerPlantPlant;
         //PlayerPlant list is irrelevent
         
-        int plantTypeID;
-        int initialSize;
-        int size;
-        int growth;
-        int[] resourcesIDS = {1, 2, 3};
+        private int plantTypeID;
+        private int initialSize;
+        private int size;
+        private int growth;
+        private int[] resourcesIDS = {1, 2, 3};
         
         //for in-game tracking, should be sync with database
-        double[] resourceQuants = new double[NUM_RESOURCES];
+        private double[] resourceQuants = new double[NUM_RESOURCES];
         
         void setID(int id){
             this.plantID = id;
@@ -87,18 +89,53 @@ class Player {
             this.size = size;
         }
         
+        void setPlantName(String name){
+            this.plantName = name;
+        }
+        
         void setTypeID(int id){
             this.plantTypeID = id;
         }
                 
-        void setResVals(double val1, double val2, double val3){
+        void setResQuants(double val1, double val2, double val3){
             this.resourceQuants[0] = val1;
             this.resourceQuants[1] = val2;
             this.resourceQuants[2] = val3;
         }
+        void setResQuant(double val, int resID){
+            this.resourceQuants[resID-1] = val;
+        }
         
         void setGrowth(){
         this.growth = this.size-this.initialSize;
+        }
+        
+        String getPlantName(){
+            return plantName;
+        }
+        int getTypeID(){
+            return plantTypeID;
+        }
+        int getPlantID(){
+            return plantID;
+        }
+        int getInitSize(){
+            return initialSize;
+        }
+        int getSize(){
+            return size;
+        }
+        int getGrowth(){
+            return growth;
+        }
+        double[]getResQuants(){
+            return resourceQuants;
+        }
+        double getResQuant(int resID){
+            return resourceQuants[resID-1]; //cause resID - 1 = index
+        }
+        int[] getResIDS(){
+            return resourcesIDS;
         }
                 
     }

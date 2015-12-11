@@ -27,7 +27,6 @@ class BotanyDatabase{
     private static final String THREE = "3";
     private static final String GAME_NAME = "DEFAULTGAME";
     private static final Integer CURR_GAME_NUM = 1;
-    private static Integer CURRENT_GAME = 1;
     private static final Integer NUM_TYPES = 3;
     private static final Integer BASE_SIZE = 0;
     private static final Integer DEFAULT_RES_QUANT = 10;
@@ -80,6 +79,13 @@ class BotanyDatabase{
         catch(SQLException ex){
             
         }
+    }
+    
+    public static boolean initialized() throws SQLException{
+        Statement stmt = (Statement) con.createStatement();
+        ResultSet myRs;
+        myRs = stmt.executeQuery("select * from PlantTypeResMod");
+        return myRs.next();
     }
     
     private static void typeInit(int col, String name) throws SQLException{
@@ -145,7 +151,7 @@ class BotanyDatabase{
         if(!rs.next()) //if no plants exist with that name
             return false;
         id = rs.getInt(1);
-        ResultSet rs2 = stmt.executeQuery("Select fk_plant_Plpl from PlayerPlants where fk_player_Plpl = " + player.playerID + " and fk_plant_Plpl = " + id);
+        ResultSet rs2 = stmt.executeQuery("Select fk_plant_Plpl from PlayerPlants where fk_player_Plpl = " + player.getPlayerID() + " and fk_plant_Plpl = " + id);
         if(rs.next()) //if plant name exists AND belongs to current player            
             return true;
         else
@@ -156,8 +162,8 @@ class BotanyDatabase{
         ResultSet id;
         Statement stmt = (Statement) con.createStatement();
         
-            stmt.executeUpdate("insert into Player(playerName) values ('" + player.playerName + "')");
-            id = stmt.executeQuery("select id_player from Player where Player.playerName = " + player.playerName + ";");                        
+            stmt.executeUpdate("insert into Player(playerName) values ('" + player.getPlayerName() + "')");
+            id = stmt.executeQuery("select id_player from Player where Player.playerName = " + player.getPlayerName() + ";");                        
             id.next();
             return id.getInt(1); 
     }
@@ -166,7 +172,7 @@ class BotanyDatabase{
         ResultSet id;
         Statement stmt = (Statement) con.createStatement();
         
-        id =stmt.executeQuery("select id_player from Player where Player.playerName = " + player.playerName + ";");
+        id =stmt.executeQuery("select id_player from Player where Player.playerName = " + player.getPlayerName() + ";");
         id.next();
         return id.getInt(1);
     }
@@ -174,12 +180,12 @@ class BotanyDatabase{
         ResultSet id;
         int plantID;
         Statement stmt = (Statement) con.createStatement();
-        stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) values ('" + player.plant.plantName
-            + "', " + player.plant.plantTypeID + ", " + BASE_SIZE + ");");
-        id = stmt.executeQuery("select id_plant from PlantList where plantName = " + player.plant.plantName + ";");
+        stmt.executeUpdate("insert into PlantList (plantName, fk_plantType_PlLi, size) values ('" + player.plant.getPlantName()
+            + "', " + player.plant.getTypeID() + ", " + BASE_SIZE + ");");
+        id = stmt.executeQuery("select id_plant from PlantList where plantName = " + player.plant.getPlantName() + ";");
         id.next();
         plantID = id.getInt(1);
-        stmt.executeUpdate("insert into PlayerPlants(fk_player_Plpl, fk_plant_Plpl) values (" + player.playerID 
+        stmt.executeUpdate("insert into PlayerPlants(fk_player_Plpl, fk_plant_Plpl) values (" + player.getPlayerID() 
                     + ", " + plantID + ");");
         return plantID;
         
@@ -187,13 +193,13 @@ class BotanyDatabase{
     public static void loadPlayer(Player player)throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         stmt.executeUpdate("insert into Masterlist (fk_game_Mas, fk_player_Mas) values (" 
-                + CURR_GAME_NUM + ", " + player.playerID + ");");
+                + CURR_GAME_NUM + ", " + player.getPlayerID() + ");");
         
         
     }
     public static int findExistingPlant(Player player)throws SQLException{
         Statement stmt = (Statement) con.createStatement();
-         ResultSet plantID = stmt.executeQuery("select fk_plant_Plpl, id_Plant from PlayerPlants, PlantList where PlayerPlants.fk_Player_Plpl = " + player.playerID + " and PlantList.plantName = " + player.plant.plantName);
+         ResultSet plantID = stmt.executeQuery("select fk_plant_Plpl, id_Plant from PlayerPlants, PlantList where PlayerPlants.fk_Player_Plpl = " + player.getPlayerID() + " and PlantList.plantName = " + player.plant.getPlantName());
          if(plantID.next())
              return plantID.getInt(2);         
          else
@@ -264,7 +270,7 @@ class BotanyDatabase{
     
     public static double getResQuant(Player player, int resID) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
-        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
+        ResultSet resQRs = stmt.executeQuery("select resQuantity from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.getPlantID() 
             + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
         //Why get next?
         resQRs.next();
@@ -274,7 +280,7 @@ class BotanyDatabase{
     
     public static double getResModVal(Player player, int resID)throws SQLException{
         Statement stmt = (Statement) con.createStatement();
-        ResultSet rsVals = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.plantTypeID
+        ResultSet rsVals = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.getTypeID()
             + " and PlantTypeResMod.fk_resource_PTRM = " + resID + ";");
         rsVals.next();
         return rsVals.getDouble(1);
@@ -282,19 +288,19 @@ class BotanyDatabase{
     
     public static double incResQuant(Player player, int resID, int resQ)throws SQLException{
         Statement stmt = (Statement) con.createStatement();
-        ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.plantTypeID
+        ResultSet ptrmRs = stmt.executeQuery("select modVal from PlantTypeResMod where PlantTypeResMod.fk_plantType_PTRM = " + player.plant.getTypeID()
             + " and PlantTypeResMod.fk_resource_PTRM = " + resID + ";");
         ptrmRs.next();
         Double modVal = getResModVal(player, resID);
 
         //get resource quantity from PlantResActive
-        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID 
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.getPlantID() 
             + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
         resQRs.next();
         int resActiveID = resQRs.getInt(1);
         //double resQuantity = resQRs.getDouble(2);
         //playerOutStreams[j].writeUTF("previous quantity of resource " + resourceID + ": " + resQuantity);
-        double newResQ = resQ*modVal + player.plant.resourceQuants[resID];
+        double newResQ = resQ*modVal + player.plant.getResQuant(resID);
         stmt.executeUpdate("Update PlantResActive Set ResQuantity = " + newResQ + " where id_plantResActive = " + resActiveID + ";");
         return newResQ;
     }
@@ -302,11 +308,11 @@ class BotanyDatabase{
     public static double decResQuant(Player player, int resID, int resQ) throws SQLException, NegativeResourceException{       
         Statement stmt = (Statement) con.createStatement();
         //get resource quantity from PlantResActive
-        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.plantID
+        ResultSet resQRs = stmt.executeQuery("select id_plantResActive from PlantResActive where PlantResActive.fk_plant_PlRa = " + player.plant.getPlantID()
             + " and PlantResActive.fk_resource_PlRA = " + resID + ";");
         resQRs.next();
         int resActiveID = resQRs.getInt(1);
-        double oldResQ = player.plant.resourceQuants[resID+1];//cause array index + 1 = id number
+        double oldResQ = player.plant.getResQuant(resID);
         if (oldResQ - resQ < 0) {
             throw new NegativeResourceException();
         }
@@ -324,13 +330,13 @@ class BotanyDatabase{
     public static int applyGrowth(Player player, int sunlight) throws SQLException{
         Statement stmt = (Statement) con.createStatement();
         
-        int size = player.plant.size;
-        double water = player.plant.resourceQuants[1];
-        double soil = player.plant.resourceQuants[2];
+        int size = player.plant.getSize();
+        double water = player.plant.getResQuant(1); //id 1 = index 0 = water
+        double soil = player.plant.getResQuant(2); //id 2 = index 1 = soil
         
         size += (((int)(water*10)) + ((int)(soil*10)))*sunlight;
         
-        stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + player.plant.plantID + ";");
+        stmt.executeUpdate("Update PlantList Set size = " + size + " where id_Plant = " + player.plant.getPlantID() + ";");
         return size;
     }
     
@@ -344,13 +350,6 @@ class BotanyDatabase{
         return rs.getInt(1);
     }
 
-    
-   //private static int getPlantSize(int plantID) throws SQLException{
-     //   Statement stmt = (Statement) con.createStatement();
-       // ResultSet rs = stmt.executeQuery("select size from PlantList where id_Plant = " + plantID + ";");
-       // rs.next();
-     //   return rs.getInt(1);
-    //}
    private static String getNameOfPlayer(int playerID) throws SQLException {
         Statement stmt = (Statement) con.createStatement();
         ResultSet myRs = stmt.executeQuery("select playerName from Player where id_player = " + playerID + ";");
@@ -392,7 +391,8 @@ class BotanyDatabase{
         myRs.next();
         return myRs.getString(1);
     }
-            
+    
+    
       
     
 }
