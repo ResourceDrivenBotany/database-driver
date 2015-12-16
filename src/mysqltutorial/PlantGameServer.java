@@ -178,18 +178,21 @@ public class PlantGameServer {
             gamePlantGrowths[i] = 0;
         }
         
-        ServerSocket serverSocket;
+        ServerSocket serverSocketOut;
+        ServerSocket serverSocketIn;
         try {
-            serverSocket = new ServerSocket(8000);
+            serverSocketOut = new ServerSocket(8000);
+            serverSocketIn = new ServerSocket(8001);
             for (int i = 0; i < PLAYERSPERGAME; i++) {
                 new Thread(() -> {  //finds connections, creates playerIDs in gamePlayerIDs
 
                     try {
-                         Socket socket = serverSocket.accept();
+                         Socket socketIn = serverSocketIn.accept();
+                         Socket socketOut = serverSocketOut.accept();
 
-                        DataInputStream inputFromClient = new DataInputStream(socket.getInputStream());
+                        DataInputStream inputFromClient = new DataInputStream(socketIn.getInputStream());
                         DataOutputStream outputToClient = new DataOutputStream(
-                        socket.getOutputStream());
+                        socketOut.getOutputStream());
 
                         final int currPlayer = incrementPlayersNum();
 
