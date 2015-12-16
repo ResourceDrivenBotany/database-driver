@@ -283,6 +283,7 @@ public class PlantGameServer {
                        final int seasonF = season;
                        for (int playerIndex = 0; playerIndex < PLAYERSPERGAME; playerIndex++) { //players in game
                            final int j = playerIndex;
+                           
                             new Thread(() -> {
                                 DataInputStream in = playerInStreams[j];
                                 DataOutputStream out = playerOutStreams[j];
@@ -398,8 +399,8 @@ public class PlantGameServer {
                             } catch (InterruptedException ex) {
                                 Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
                             }
-                            System.out.println(" All " + playerRoundFinished + " players have input their moves at " + new Date());
                         }
+                       System.out.println(" All " + playerRoundFinished + " players have input their moves at " + new Date());
                        try {
                            Statement stmt = con.createStatement();
 
