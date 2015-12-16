@@ -634,7 +634,7 @@ public class PlantGameServer {
         }
         if (!plantFound) {
             stmt.executeUpdate("insert into PlantList(plantName, fk_plantType_PlLi, size) \n values (\"" + plantName + "\", " + plantType + ", " + 0 + ");");
-            ResultSet idPlant = stmt.executeQuery("select id_plant from PlantList where plantName = \"" + plantName + "\";");
+            ResultSet idPlant = stmt.executeQuery("SELECT LAST_INSERT_ID();");
             idPlant.next();
             plantID = idPlant.getInt(1);
             stmt.executeUpdate("insert into PlayerPlants(fk_player_Plpl, fk_plant_Plpl) \n values (" + playerID 
