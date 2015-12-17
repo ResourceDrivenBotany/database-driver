@@ -66,21 +66,30 @@ public class PlantGameServer {
         while (loop) {
             try {
                 fromClient = in.readInt();
+                in.skip(in.available());
+                System.out.println("in getIntLoop (inside getIntInRange): fromClient: " + fromClient);
                 loop = false;
             } catch (IOException ex) {
                 loop = true;
+                in.skip(in.available());
+                System.out.println("loop true from IOException \n in getIntLoop (inside getIntInRange): fromClient: " + fromClient);
                 out.writeUTF(message);
+                out.flush();
             }
         }
+        System.out.println("returning from getIntLoop (inside getIntInRange): fromClient: " + fromClient);
         return fromClient;
     }
     
     private static int getIntInRange(DataInputStream in, DataOutputStream out, int low, int high, String message) throws IOException {
         int fromClient = getIntLoop(in, out, "failed integer input, Try again.");
+        System.out.println("in getIntInRange: fromClient: " + fromClient);
         while (fromClient < low || fromClient > high) {
-            out.writeUTF(message);
-            fromClient = getIntLoop(in, out, "failed integer input, Try again.");
+            out.writeUTF(fromClient + " is invalid: " + message);
+            out.flush();
+            fromClient = getIntLoop(in, out, "value out of range, Try again.");
         }
+        System.out.println("return from getIntInRange: fromClient: " + fromClient);
         return fromClient;
     }
     
@@ -202,10 +211,13 @@ public class PlantGameServer {
 
                             // Read in from client
                             outputToClient.writeUTF("Enter player's name! \n(will be created in database if doesn't exist):");
+                            outputToClient.flush();
                             String playerName = inputFromClient.readUTF();
                             outputToClient.writeUTF("Enter plant's name! \n(will be created in database if doesn't exist):");
+                            outputToClient.flush();
                             String plantName = inputFromClient.readUTF();
                             outputToClient.writeUTF("Enter your plantType Number. Available plantTypes: ");
+                            outputToClient.flush();
                             try {
                                 int numberOfTypes = printPlantTypesAvailable(outputToClient);
                                 int plantType = getIntInRange(inputFromClient, outputToClient, 1, numberOfTypes, "invalid Type. Enter an integer:");
@@ -300,17 +312,22 @@ public class PlantGameServer {
                                 ///vvv increment resource
                                 try {   //read from Client and perform gameplay operations
                                     out.writeUTF("The season is " + seasonNameF + "with sunlight " + seasonF + "/10");
-                                     try {
+                                    out.flush(); 
+                                    try {
                                          out.writeUTF("The following plants are in the game: ");
+                                         out.flush(); 
                                          for (int k = 0; k < PLAYERSPERGAME; k++) {
                                              out.writeUTF("Plant: " + getNameOfPlant(gamePlantIDs[k]) + ", size = " + getPlantSize(gamePlantIDs[k]) + ", growth in this game: " + gamePlantGrowths[k]);
+                                             out.flush(); 
                                          }
                                      } catch (SQLException ex) {
                                          Logger.getLogger(PlantGameServer.class.getName()).log(Level.SEVERE, null, ex);
                                          out.writeUTF("error reading plant list");
+                                         out.flush(); 
                                      }
                                    out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
                                            + "and integer quantity to increment 1-10");
+                                   out.flush(); 
                                    int resourceID = getIntInRange(in, out, 1, 3, "Resources are numbered 1-3. Try again:");
                                    System.out.println("debugging1");
                                    int resourceAmount = getIntInRange(in, out, 1, 10, "enter integer 1-10:");
