@@ -148,8 +148,26 @@ public class PlantGameServer {
         myRs.next();
         return myRs.getString(1);
     }
-    
-    
+    private static String getSafeString(DataInputStream in, DataOutputStream out) throws IOException{
+        boolean loop = true;
+        String alphaNumPattern= "^[a-zA-Z0-9]*$";
+        String fromClient = "UNINITIALIZED";
+        String atLeastOneAlphaNum = ".*\\w.*";
+        
+        fromClient = in.readUTF();
+        do {
+            if (fromClient.matches(alphaNumPattern) && fromClient.matches(atLeastOneAlphaNum)) {
+                loop = false;
+            }
+            else {
+                out.writeUTF("Please enter an only alphanumeric, non-empty string");
+                out.flush();
+                fromClient = in.readUTF();
+            }
+        } while (loop);
+        
+        return fromClient;
+    }
 
     
     public static void main(String[] args){
@@ -212,10 +230,10 @@ public class PlantGameServer {
                             // Read in from client
                             outputToClient.writeUTF("Enter player's name! \n(will be created in database if doesn't exist):");
                             outputToClient.flush();
-                            String playerName = inputFromClient.readUTF();
+                            String playerName = getSafeString(inputFromClient, outputToClient);
                             outputToClient.writeUTF("Enter plant's name! \n(will be created in database if doesn't exist):");
                             outputToClient.flush();
-                            String plantName = inputFromClient.readUTF();
+                            String plantName = getSafeString(inputFromClient, outputToClient);
                             outputToClient.writeUTF("Enter your plantType Number. Available plantTypes: ");
                             outputToClient.flush();
                             try {
