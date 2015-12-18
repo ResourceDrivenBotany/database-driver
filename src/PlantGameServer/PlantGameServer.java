@@ -1,5 +1,5 @@
 
-package mysqltutorial;
+package PlantGameServer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -305,7 +305,7 @@ public class PlantGameServer {
                     }
                     
                     //instantiate game variables!
-                    for (int i = 0; i < 3; i++) {  //rounds
+                    for (int i = 0; i < 2; i++) {  //rounds
                        HashMap<Integer, Integer> hmapAttackData = new HashMap<Integer, Integer>();
 
                        ArrayList<Integer> defendingPlants = new ArrayList<Integer>();
@@ -343,11 +343,10 @@ public class PlantGameServer {
                                          out.writeUTF("error reading plant list");
                                          out.flush(); 
                                      }
-                                   out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n" 
-                                           + "and integer quantity to increment 1-10");
+                                   out.writeUTF("please enter resource [1. water, 2. soil, 3. scent]\n");
                                    out.flush(); 
                                    int resourceID = getIntInRange(in, out, 1, 3, "Resources are numbered 1-3. Try again:");
-                                   System.out.println("debugging1");
+                                   out.writeUTF("now enter a quantity to increase this resource 1-10");
                                    int resourceAmount = getIntInRange(in, out, 1, 10, "enter integer 1-10:");
                                    System.out.println("resourceID: " + resourceID + ", resourceAmount: " + resourceAmount);
 
